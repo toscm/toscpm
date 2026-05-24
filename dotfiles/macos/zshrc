@@ -24,7 +24,7 @@ export HOMEBREW_NO_ENV_HINTS=1
 
 # Manual edits
 export VISUAL=code
-export EDITOR=micro
+export EDITOR=nvim
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export PATH="$PATH:/Users/tobi/.local/bin"
 export PATH="$PATH:/Users/tobi/Repos/capman/macos"
