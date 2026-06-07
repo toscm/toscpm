@@ -1,23 +1,26 @@
 # Installers
 
-Scripts to install my core utils on different operating systems
+Dotfiles and a single `check` command to verify and set up my dev
+environment on macOS, Linux, and Windows.
+
+## Installation
+
+```bash
+git clone https://github.com/toscm/installers.git ~/repos/installers
+~/repos/installers/check.py --link
+```
+
+This symlinks all dotfiles for the current OS into place (existing files
+are backed up as `.bak`) and links `check.py` to `~/.local/bin/check`.
 
 ## Usage
 
-```bash
-tmp_dir=$(mktemp -d)
-git clone --depth 1 https://github.com/toscm/installers.git "$tmp_dir"
-bash "$tmp_dir/ubuntu22/coreutils"
-bash "$tmp_dir/ubuntu22/R"
-cp anyos/.Rprofile ~
-cp anyos/.lintr ~
-rm -rf $tmp_dir
-```
+Run `check` for a status overview of tools (installed?), dotfiles
+(symlinked?), self (`check` on PATH?), and repo (clean?). Missing tools
+get ready-to-paste install commands. Use `--tools`, `--dotfiles`, or
+`--repo` for single sections. `check --link` is idempotent.
 
 ## Scripts
 
-Helper scripts for often recurring tasks are available in folder `scripts`. As of April 2024 the following helpers are available:
-
-- configure_git
-- create_keypair
-- create_user
+Helper scripts in `scripts/` (`configure_git`, `create_keypair`,
+`create_user`); legacy Ubuntu 22 install scripts in `ubuntu22/`.

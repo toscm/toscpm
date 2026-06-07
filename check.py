@@ -112,6 +112,7 @@ DOTFILES = [
     ("~/.lintr",                      "dotfiles/anyos/lintr",                 None),
     ("~/.config/micro/bindings.json", "dotfiles/anyos/micro_bindings.json",   None),
     ("~/.config/nvim/init.lua",       "dotfiles/anyos/nvim_init.lua",         None),
+    ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
     ("~/.bashrc",                     "dotfiles/linux/bashrc",                "linux"),
     ("~/.bash_aliases",               "dotfiles/linux/bash_aliases",          "linux"),
