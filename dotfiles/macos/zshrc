@@ -23,8 +23,9 @@ PROMPT='%F{blue}%1~> %f'
 export HOMEBREW_NO_ENV_HINTS=1
 
 # Manual edits
+setopt interactive_comments
 export VISUAL=code
-export EDITOR=nvim
+export EDITOR=hx
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export PATH="$PATH:/Users/tobi/.local/bin"
 export PATH="$PATH:/Users/tobi/Repos/capman/macos"
@@ -56,4 +57,9 @@ function y() {
 alias ls='eza'
 alias la='eza -la'
 alias lt='eza --tree --level=2'
-
+alias gaa='git add -A'
+alias gcm='git commit -m'
+alias gp='git push'
+alias gs='git status'
+alias gd='git diff'
+alias v='nvim'

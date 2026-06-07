@@ -12,10 +12,12 @@ vim.opt.rtp:prepend(lazypath)
 require("lazy").setup({
   { "nvim-treesitter/nvim-treesitter", build = ":TSUpdate",
     config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = { "markdown", "markdown_inline", "latex", "r", "lua" },
-        highlight = { enable = true },
-      })
+      local ensure = { "markdown", "markdown_inline", "latex", "r", "lua" }
+      for _, lang in ipairs(ensure) do
+        if not pcall(vim.treesitter.language.inspect, lang) then
+          vim.cmd("TSInstall " .. lang)
+        end
+      end
     end,
   },
 })
@@ -43,3 +45,21 @@ vim.keymap.set('v', '<C-S-Down>',  '}',   { desc = 'Extend paragraph down' })
 
 -- Forward delete (Fn+Delete on macOS = Windows Del key)
 vim.keymap.set('n', '<Del>', 'x', { desc = 'Delete char under cursor' })
+
+-- LSP: Lua
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "lua",
+  callback = function()
+    vim.lsp.start({
+      name = "lua-ls",
+      cmd = { "lua-language-server" },
+      root_dir = vim.fs.root(0, { ".luarc.json", "init.lua", ".git" }),
+      settings = {
+        Lua = {
+          runtime = { version = "LuaJIT" },
+          workspace = { library = { vim.env.VIMRUNTIME } },
+        },
+      },
+    })
+  end,
+})
