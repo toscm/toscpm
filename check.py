@@ -147,6 +147,33 @@ def check_dotfiles(current_os):
     return len(broken) == 0
 
 
+class SymlinkPrivilegeError(Exception):
+    """Raised when Windows refuses to create a symlink for lack of privilege."""
+
+
+def create_symlink(link, source):
+    """Create a symlink, translating Windows' privilege error into a clear message."""
+    try:
+        link.symlink_to(source)
+    except OSError as e:
+        # WinError 1314: "A required privilege is not held by the client".
+        if getattr(e, "winerror", None) == 1314:
+            raise SymlinkPrivilegeError from e
+        raise
+
+
+SYMLINK_PRIVILEGE_HELP = (
+    f"\n{FAIL} Cannot create symlinks: Windows is blocking this without elevated privileges.\n"
+    "  Enable symlink creation without admin by turning on Developer Mode:\n"
+    "    Settings > Privacy & security > For developers > Developer Mode (toggle On)\n"
+    "  Or from an elevated PowerShell:\n"
+    "    reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock\" "
+    "/t REG_DWORD /f /v AllowDevelopmentWithoutDevLicense /d 1\n"
+    "  Then open a new terminal and re-run: check --link\n"
+    "  (Alternatively, run this command from a terminal opened as Administrator.)"
+)
+
+
 def link_dotfiles(current_os):
     for symlink_path, repo_rel, target_os in DOTFILES:
         if target_os is not None and target_os != current_os:
@@ -167,7 +194,7 @@ def link_dotfiles(current_os):
             link.rename(backup)
             print(f"  back {symlink_path} -> {backup.name}")
 
-        link.symlink_to(source)
+        create_symlink(link, source)
         print(f"  link {symlink_path} -> {repo_rel}")
 
 
@@ -175,37 +202,66 @@ def link_dotfiles(current_os):
 # Self-install
 # ---------------------------------------------------------------------------
 
-def check_self_install():
-    check_bin = LOCAL_BIN / "check"
+def self_install_target(current_os):
+    """Return (path, kind) for the 'check' launcher in ~/.local/bin.
+
+    Windows cannot execute a .py file via a symlink, so there we install a
+    'check.bat' shim that forwards all arguments to check.py instead.
+    """
+    if current_os == "windows":
+        return LOCAL_BIN / "check.bat", "shim"
+    return LOCAL_BIN / "check", "symlink"
+
+
+def windows_shim_content(script):
+    return f'@echo off\npython "{script}" %*\n'
+
+
+def check_self_install(current_os):
+    target, kind = self_install_target(current_os)
     script = REPO_DIR / "check.py"
-    ok = (
-        check_bin.is_symlink()
-        and check_bin.resolve() == script.resolve()
-        and str(LOCAL_BIN) in os.environ.get("PATH", "").split(os.pathsep)
-    )
+
+    if kind == "shim":
+        linked = target.is_file() and target.read_text() == windows_shim_content(script)
+    else:
+        linked = target.is_symlink() and target.resolve() == script.resolve()
+
+    in_path = str(LOCAL_BIN) in os.environ.get("PATH", "").split(os.pathsep)
+    ok = linked and in_path
     if ok:
-        print(f"{OK} Self       check -> ~/.local/bin/check")
+        print(f"{OK} Self       check -> ~/.local/bin/{target.name}")
     else:
         problems = []
-        if not check_bin.is_symlink() or check_bin.resolve() != script.resolve():
+        if not linked:
             problems.append("not linked")
-        if str(LOCAL_BIN) not in os.environ.get("PATH", "").split(os.pathsep):
+        if not in_path:
             problems.append("~/.local/bin not in PATH")
         print(f"{FAIL} Self       {', '.join(problems)} (run: check --link)")
     return ok
 
 
-def link_self():
+def link_self(current_os):
     LOCAL_BIN.mkdir(parents=True, exist_ok=True)
-    check_bin = LOCAL_BIN / "check"
+    target, kind = self_install_target(current_os)
     script = REPO_DIR / "check.py"
 
-    if check_bin.is_symlink() and check_bin.resolve() == script.resolve():
+    if kind == "shim":
+        content = windows_shim_content(script)
+        if target.is_file() and target.read_text() == content:
+            print(f"  {OK}    ~/.local/bin/{target.name}")
+            return
+        if target.exists() or target.is_symlink():
+            target.rename(target.with_suffix(".bak"))
+        target.write_text(content)
+        print(f"  shim ~/.local/bin/{target.name} -> check.py")
+        return
+
+    if target.is_symlink() and target.resolve() == script.resolve():
         print(f"  {OK}    ~/.local/bin/check")
         return
-    if check_bin.exists() or check_bin.is_symlink():
-        check_bin.rename(check_bin.with_suffix(".bak"))
-    check_bin.symlink_to(script)
+    if target.exists() or target.is_symlink():
+        target.rename(target.with_suffix(".bak"))
+    create_symlink(target, script)
     print(f"  link ~/.local/bin/check -> check.py")
 
 
@@ -251,8 +307,12 @@ def main():
     current_os = get_os()
 
     if args.link:
-        link_dotfiles(current_os)
-        link_self()
+        try:
+            link_dotfiles(current_os)
+            link_self(current_os)
+        except SymlinkPrivilegeError:
+            print(SYMLINK_PRIVILEGE_HELP)
+            sys.exit(1)
         return
 
     show_all = not (args.tools or args.dotfiles or args.repo)
@@ -263,7 +323,7 @@ def main():
     if args.dotfiles or show_all:
         check_dotfiles(current_os)
     if show_all:
-        check_self_install()
+        check_self_install(current_os)
     if args.repo or show_all:
         check_repo()
     if missing_tools:
