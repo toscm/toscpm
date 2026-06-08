@@ -13,3 +13,5 @@
 	side-by-side = true
 [push]
 	followTags = true
+[credential "https://git.overleaf.com"]
+	provider = generic
