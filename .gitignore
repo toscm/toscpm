@@ -1,3 +1,6 @@
 # Python
 __pycache__/
 *.py[cod]
+
+# Neovim compiled spell files (regenerated from .add sources)
+*.add.spl
