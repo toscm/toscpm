@@ -1,7 +1,18 @@
 # Aliases
-Remove-Item Alias:r
-Remove-Item -Force Alias:where
+if (Test-Path Alias:r)     { Remove-Item Alias:r }
+if (Test-Path Alias:where) { Remove-Item -Force Alias:where }
 Set-Alias la Get-ChildItem
+
+# Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
+function y {
+    $tmp = [System.IO.Path]::GetTempFileName()
+    yazi $args --cwd-file="$tmp"
+    $cwd = Get-Content -Path $tmp -Encoding UTF8
+    if (-not [String]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
+        Set-Location -LiteralPath ([System.IO.Path]::GetFullPath($cwd))
+    }
+    Remove-Item -Path $tmp
+}
 
 # Prompt
 function prompt {
