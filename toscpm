@@ -1,0 +1,770 @@
+#!/usr/bin/env python3
+"""toscpm — manage core dev tools, dotfiles, and repo status across OSes.
+
+Subcommands:
+  toscpm check                health check: tools / dotfiles / self / repo
+  toscpm install [TOOL...]    install missing (or named) tools, no-admin into ~/.local
+      -n, --dry-run           print the commands instead of running them
+      --admin                 print the admin (apt/brew/winget) commands (always dry)
+      --all                   target every tool, not just the missing ones
+  toscpm link                 symlink dotfiles + install self into ~/.local/bin
+
+Bare `toscpm` runs `check`.
+"""
+
+import argparse
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from dataclasses import dataclass, field
+from pathlib import Path
+
+REPO_DIR = Path(__file__).resolve().parent
+HOME = Path.home()
+LOCAL_PREFIX = HOME / ".local"
+LOCAL_BIN = LOCAL_PREFIX / "bin"
+
+# Absolute paths for the commands we actually run; "~"-forms for display.
+BIN = str(LOCAL_BIN)
+PREFIX = str(LOCAL_PREFIX)
+BIN_DISP = "~/.local/bin"
+PREFIX_DISP = "~/.local"
+
+OK = "✓"
+FAIL = "✗"
+SKIP = "–"
+
+
+def get_os():
+    system = platform.system().lower()
+    if system == "darwin":
+        return "macos"
+    if system == "linux":
+        return "linux"
+    if system == "windows":
+        return "windows"
+    sys.exit(f"Unsupported OS: {system}")
+
+
+def get_arch():
+    m = platform.machine().lower()
+    if m in ("x86_64", "amd64"):
+        return "x86_64"
+    if m in ("aarch64", "arm64"):
+        return "aarch64"
+    sys.exit(f"Unsupported architecture: {m}")
+
+
+# ---------------------------------------------------------------------------
+# No-admin install recipes (Linux). macOS/Windows use the admin package
+# manager directly (brew/winget are already non-privileged).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GhBin:
+    """Download a GitHub release archive, extract binaries into ~/.local/bin.
+
+    Binaries are located by basename anywhere in the extracted tree, so we
+    don't depend on the archive's internal directory layout.
+    """
+    repo: str
+    assets: dict          # arch -> asset filename template ({ver} if versioned)
+    wants: list           # list of (basename_in_archive, output_name)
+    strip_v: bool = True  # tag "vX.Y.Z" -> ver "X.Y.Z"; False keeps tag as-is
+    archive: str = "tar.gz"   # tar.gz | tar.xz | zip
+    versioned: bool = True    # asset filename embeds the version
+
+
+@dataclass
+class GhTree:
+    """Strip the top dir of a GitHub release archive into ~/.local.
+
+    For tools that need their bundled lib/ + share/ runtime (nvim, pandoc).
+    """
+    repo: str
+    assets: dict
+    strip_v: bool = True
+    archive: str = "tar.gz"
+    versioned: bool = True
+
+
+@dataclass
+class NodeDist:
+    """Node.js from nodejs.org/dist, stripped into ~/.local."""
+    channel: str = "lts"      # "lts" or "current"
+    assets: dict = field(default_factory=lambda: {
+        "x86_64": "node-v{ver}-linux-x64.tar.xz",
+        "aarch64": "node-v{ver}-linux-arm64.tar.xz",
+    })
+
+
+@dataclass
+class Script:
+    """An official installer one-liner that already targets ~/.local."""
+    cmd: str
+
+
+@dataclass
+class Tool:
+    name: str
+    bin: object               # str | list[str] | {os: str|list, "default": ...}
+    admin: dict               # os -> system/canonical install command
+    user_linux: object = None # GhBin|GhTree|NodeDist|Script|None (admin-only)
+    version_flag: str = "--version"
+
+
+RUST_MUSL = {
+    "x86_64": "x86_64-unknown-linux-musl",
+    "aarch64": "aarch64-unknown-linux-musl",
+}
+
+
+TOOLS = [
+    Tool("git", "git",
+         {"macos": "brew install git", "linux": "sudo apt install -y git", "windows": "winget install Git.Git"}),
+    Tool("gh", "gh",
+         {"macos": "brew install gh", "linux": "sudo apt install -y gh", "windows": "winget install GitHub.cli"},
+         GhBin("cli/cli",
+               {"x86_64": "gh_{ver}_linux_amd64.tar.gz", "aarch64": "gh_{ver}_linux_arm64.tar.gz"},
+               [("gh", "gh")])),
+    Tool("delta", "delta",
+         {"macos": "brew install git-delta", "linux": "cargo install git-delta", "windows": "winget install dandavison.delta"},
+         GhBin("dandavison/delta",
+               {a: f"delta-{{ver}}-{t}.tar.gz" for a, t in RUST_MUSL.items()},
+               [("delta", "delta")], strip_v=False)),
+    Tool("lazygit", "lazygit",
+         {"macos": "brew install lazygit", "linux": "go install github.com/jesseduffield/lazygit@latest", "windows": "winget install JesseDuffield.Lazygit"},
+         GhBin("jesseduffield/lazygit",
+               {"x86_64": "lazygit_{ver}_Linux_x86_64.tar.gz", "aarch64": "lazygit_{ver}_Linux_arm64.tar.gz"},
+               [("lazygit", "lazygit")])),
+    Tool("nvim", "nvim",
+         {"macos": "brew install neovim", "linux": "sudo apt install -y neovim", "windows": "winget install Neovim.Neovim"},
+         GhTree("neovim/neovim",
+                {"x86_64": "nvim-linux-x86_64.tar.gz", "aarch64": "nvim-linux-arm64.tar.gz"},
+                versioned=False)),
+    Tool("micro", "micro",
+         {"macos": "brew install micro", "linux": "sudo apt install -y micro", "windows": "winget install zyedidia.micro"},
+         GhBin("zyedidia/micro",
+               {"x86_64": "micro-{ver}-linux64.tar.gz", "aarch64": "micro-{ver}-linux-arm64.tar.gz"},
+               [("micro", "micro")]),
+         version_flag="-version"),
+    Tool("tmux", "tmux",
+         {"macos": "brew install tmux", "linux": "sudo apt install -y tmux"}),
+    Tool("zoxide", "zoxide",
+         {"macos": "brew install zoxide", "linux": "curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh", "windows": "winget install ajeetdsouza.zoxide"},
+         Script("curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh")),
+    Tool("fzf", "fzf",
+         {"macos": "brew install fzf", "linux": "sudo apt install -y fzf", "windows": "winget install junegunn.fzf"},
+         GhBin("junegunn/fzf",
+               {"x86_64": "fzf-{ver}-linux_amd64.tar.gz", "aarch64": "fzf-{ver}-linux_arm64.tar.gz"},
+               [("fzf", "fzf")])),
+    Tool("yazi", "yazi",
+         {"macos": "brew install yazi", "linux": "cargo install --locked yazi-fm yazi-cli", "windows": "winget install sxyazi.yazi"},
+         GhBin("sxyazi/yazi",
+               {a: f"yazi-{t}.zip" for a, t in RUST_MUSL.items()},
+               [("yazi", "yazi"), ("ya", "ya")], archive="zip", versioned=False)),
+    Tool("fd", {"default": "fd", "linux": ["fd", "fdfind"]},
+         {"macos": "brew install fd", "linux": "sudo apt install -y fd-find", "windows": "winget install sharkdp.fd"},
+         GhBin("sharkdp/fd",
+               {a: f"fd-v{{ver}}-{t}.tar.gz" for a, t in RUST_MUSL.items()},
+               [("fd", "fd")])),
+    Tool("rg", "rg",
+         {"macos": "brew install ripgrep", "linux": "sudo apt install -y ripgrep", "windows": "winget install BurntSushi.ripgrep.MSVC"},
+         GhBin("BurntSushi/ripgrep",
+               {a: f"ripgrep-{{ver}}-{t}.tar.gz" for a, t in RUST_MUSL.items()},
+               [("rg", "rg")], strip_v=False)),
+    Tool("bat", {"default": "bat", "linux": ["bat", "batcat"]},
+         {"macos": "brew install bat", "linux": "sudo apt install -y bat", "windows": "winget install sharkdp.bat"},
+         GhBin("sharkdp/bat",
+               {a: f"bat-v{{ver}}-{t}.tar.gz" for a, t in RUST_MUSL.items()},
+               [("bat", "bat")])),
+    Tool("eza", "eza",
+         {"macos": "brew install eza", "linux": "cargo install eza"},
+         GhBin("eza-community/eza",
+               {a: f"eza_{t}.tar.gz" for a, t in RUST_MUSL.items()},
+               [("eza", "eza")], versioned=False)),
+    Tool("tree", "tree",
+         {"macos": "brew install tree", "linux": "sudo apt install -y tree"}),
+    Tool("python3", {"default": "python3", "windows": "python"},
+         {"macos": "brew install python", "linux": "sudo apt install -y python3", "windows": "winget install Python.Python.3.12"}),
+    Tool("R", "R",
+         {"macos": "brew install r", "linux": "sudo apt install -y r-base", "windows": "winget install RProject.R"}),
+    Tool("node", "node",
+         {"macos": "brew install node", "linux": "sudo apt install -y nodejs", "windows": "winget install OpenJS.NodeJS"},
+         NodeDist()),
+    Tool("curl", "curl",
+         {"macos": "brew install curl", "linux": "sudo apt install -y curl", "windows": "winget install cURL.cURL"}),
+    Tool("wget", "wget",
+         {"macos": "brew install wget", "linux": "sudo apt install -y wget", "windows": "winget install JernejSimoncic.Wget"}),
+    Tool("pandoc", "pandoc",
+         {"macos": "brew install pandoc", "linux": "sudo apt install -y pandoc", "windows": "winget install JohnMacFarlane.Pandoc"},
+         GhTree("jgm/pandoc",
+                {"x86_64": "pandoc-{ver}-linux-amd64.tar.gz", "aarch64": "pandoc-{ver}-linux-arm64.tar.gz"},
+                strip_v=False)),
+    Tool("claude", "claude",
+         {"macos": "npm i -g @anthropic-ai/claude-code", "linux": "npm i -g @anthropic-ai/claude-code", "windows": "npm i -g @anthropic-ai/claude-code"},
+         Script("npm i -g @anthropic-ai/claude-code")),
+]
+
+
+def bin_candidates(tool, cur_os):
+    b = tool.bin
+    if isinstance(b, dict):
+        b = b.get(cur_os, b["default"])
+    return [b] if isinstance(b, str) else list(b)
+
+
+def installed(tool, cur_os):
+    return any(shutil.which(c) for c in bin_candidates(tool, cur_os))
+
+
+# ---------------------------------------------------------------------------
+# Latest-version discovery
+# ---------------------------------------------------------------------------
+
+def _get(url, method="GET"):
+    req = urllib.request.Request(url, method=method, headers={"User-Agent": "toscpm"})
+    return urllib.request.urlopen(req, timeout=15)
+
+
+def gh_latest_tag(repo):
+    """Resolve a repo's latest release tag via the releases/latest redirect.
+
+    https://github.com/<repo>/releases/latest -> .../releases/tag/<tag>
+    Avoids the api.github.com rate limit.
+    """
+    final = _get(f"https://github.com/{repo}/releases/latest", method="HEAD").geturl()
+    return final.rstrip("/").rsplit("/", 1)[-1]
+
+
+def node_latest(channel):
+    with _get("https://nodejs.org/dist/index.json") as r:
+        data = json.load(r)
+    if channel == "lts":
+        for entry in data:
+            if entry.get("lts"):
+                return entry["version"].lstrip("v")
+    return data[0]["version"].lstrip("v")
+
+
+def gh_resolve(spec, arch):
+    """Return (version_display, asset_filename, download_url)."""
+    template = spec.assets[arch]
+    if not spec.versioned:
+        return "latest", template, f"https://github.com/{spec.repo}/releases/latest/download/{template}"
+    tag = gh_latest_tag(spec.repo)
+    ver = tag[1:] if spec.strip_v and tag.startswith("v") else tag
+    asset = template.format(ver=ver)
+    return ver, asset, f"https://github.com/{spec.repo}/releases/download/{tag}/{asset}"
+
+
+# ---------------------------------------------------------------------------
+# Install planning: each step is (label, detail, shell_command)
+# ---------------------------------------------------------------------------
+
+def _extract(archive, src, dst):
+    mk = f"mkdir -p {dst} && "
+    if archive == "zip":
+        return mk + f"unzip -qo {src} -d {dst}"
+    flag = "-xJf" if archive == "tar.xz" else "-xzf"
+    return mk + f"tar {flag} {src} -C {dst}"
+
+
+def linux_steps(spec, t):
+    """Build (version, steps) for a Linux no-admin recipe."""
+    if isinstance(spec, Script):
+        return None, [("Installing", "official installer", spec.cmd)]
+
+    if isinstance(spec, NodeDist):
+        ver = node_latest(spec.channel)
+        asset = spec.assets[ARCH].format(ver=ver)
+        url = f"https://nodejs.org/dist/v{ver}/{asset}"
+        return ver, [
+            ("Downloading", asset, f"curl -fsSL {url} -o {t}/{asset}"),
+            ("Extracting", f"-> {PREFIX_DISP}",
+             f"mkdir -p {PREFIX} && tar -xJf {t}/{asset} -C {PREFIX} --strip-components=1"),
+        ]
+
+    ver, asset, url = gh_resolve(spec, ARCH)
+    download = ("Downloading", asset, f"curl -fsSL {url} -o {t}/{asset}")
+
+    if isinstance(spec, GhTree):
+        flag = "-xJf" if spec.archive == "tar.xz" else "-xzf"
+        return ver, [download, (
+            "Extracting", f"-> {PREFIX_DISP}",
+            f"mkdir -p {PREFIX} && tar {flag} {t}/{asset} -C {PREFIX} --strip-components=1")]
+
+    steps = [download, ("Extracting", "unpack archive", _extract(spec.archive, f"{t}/{asset}", f"{t}/x"))]
+    for base, out in spec.wants:
+        steps.append((
+            "Installing", f"{out} -> {BIN_DISP}/{out}",
+            f'install -m 755 "$(find {t}/x -name {base} -type f | head -1)" {BIN}/{out}'))
+    return ver, steps
+
+
+def build_plan(tool, cur_os, t):
+    """Return dict(status, version, steps). status: ok | admin_only | unavailable."""
+    primary = bin_candidates(tool, cur_os)[0]
+    verify = ("Verifying", f"{primary} {tool.version_flag}", f"{BIN}/{primary} {tool.version_flag}")
+
+    if cur_os != "linux":
+        cmd = tool.admin.get(cur_os)
+        if not cmd:
+            return {"status": "unavailable"}
+        return {"status": "ok", "version": None, "steps": [("Installing", cmd, cmd), verify]}
+
+    if tool.user_linux is None:
+        return {"status": "admin_only" if tool.admin.get("linux") else "unavailable"}
+
+    ver, steps = linux_steps(tool.user_linux, t)
+    steps.append(verify)
+    return {"status": "ok", "version": ver, "steps": steps}
+
+
+# ---------------------------------------------------------------------------
+# install command
+# ---------------------------------------------------------------------------
+
+def select_targets(names, do_all, cur_os):
+    by_name = {tool.name: tool for tool in TOOLS}
+    if names:
+        targets = []
+        for n in names:
+            if n not in by_name:
+                sys.exit(f"unknown tool: {n} (known: {', '.join(by_name)})")
+            targets.append(by_name[n])
+        return targets
+    if do_all:
+        return list(TOOLS)
+    return [t for t in TOOLS if t.admin.get(cur_os) and not installed(t, cur_os)]
+
+
+def show_admin_commands(targets, cur_os):
+    groups, standalone = {}, []
+    for tool in targets:
+        cmd = tool.admin.get(cur_os)
+        if not cmd:
+            continue
+        for prefix in ("brew install ", "sudo apt install -y ", "winget install "):
+            if cmd.startswith(prefix):
+                groups.setdefault(prefix.rstrip(), []).append(cmd[len(prefix):])
+                break
+        else:
+            standalone.append(cmd)
+    for prefix, pkgs in groups.items():
+        print(f"  {prefix} {' '.join(pkgs)}")
+    for cmd in standalone:
+        print(f"  {cmd}")
+
+
+def install(names, do_all, dry, admin, cur_os):
+    targets = select_targets(names, do_all, cur_os)
+    if not targets:
+        print("Nothing to install — all tracked tools are present.")
+        return 0
+
+    if admin:
+        show_admin_commands(targets, cur_os)
+        return 0
+
+    LOCAL_BIN.mkdir(parents=True, exist_ok=True)
+    if dry:
+        print('t="$(mktemp -d)"\n')
+
+    n_ok = n_skip = n_fail = 0
+    for tool in targets:
+        tmp = None
+        try:
+            if dry:
+                plan = build_plan(tool, cur_os, '"$t"')
+            else:
+                tmp = tempfile.mkdtemp(prefix=f"toscpm-{tool.name}-")
+                plan = build_plan(tool, cur_os, tmp)
+        except Exception as e:
+            print(f"{FAIL} {tool.name}: cannot resolve latest version ({e})")
+            n_fail += 1
+            if tmp:
+                shutil.rmtree(tmp, ignore_errors=True)
+            continue
+
+        status = plan["status"]
+        if status == "admin_only":
+            print(f"{SKIP} {tool.name} skipped (admin-only — see: toscpm install -n --admin {tool.name})")
+            n_skip += 1
+            continue
+        if status == "unavailable":
+            print(f"{SKIP} {tool.name} not available on {cur_os}")
+            n_skip += 1
+            continue
+
+        ver, steps = plan["version"], plan["steps"]
+        tag = f" ({ver})" if ver else ""
+
+        if dry:
+            print(f"# {tool.name}{tag}")
+            for _, _, cmd in steps:
+                print(cmd)
+            print()
+            continue
+
+        print(f"{tool.name}{tag}")
+        ok = True
+        for label, detail, cmd in steps:
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if label == "Verifying" and res.returncode == 0:
+                out = (res.stdout or res.stderr).strip().splitlines()
+                print(f"  {label:<12} {detail} -> {out[0] if out else ''}")
+            else:
+                print(f"  {label:<12} {detail}")
+            if res.returncode != 0:
+                err = (res.stderr or res.stdout).strip().splitlines()
+                reason = err[0] if err else f"exit {res.returncode}"
+                print(f"  {FAIL} failed at {label}: {reason}")
+                ok = False
+                break
+        if ok:
+            print(f"  {OK} {tool.name} installed{tag}")
+            n_ok += 1
+        else:
+            n_fail += 1
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    if not dry:
+        print(f"\nInstalled {n_ok}, skipped {n_skip}, failed {n_fail}")
+        if str(LOCAL_BIN) not in os.environ.get("PATH", "").split(os.pathsep):
+            print(f"{FAIL} {BIN_DISP} is not on PATH — add it to use the installed tools.")
+    return 1 if n_fail else 0
+
+
+# ---------------------------------------------------------------------------
+# check: tools
+# ---------------------------------------------------------------------------
+
+def check_tools(cur_os):
+    installed_n, missing = 0, []
+    for tool in TOOLS:
+        if not tool.admin.get(cur_os):
+            continue
+        if installed(tool, cur_os):
+            installed_n += 1
+        else:
+            missing.append(tool.name)
+
+    if not missing:
+        print(f"{OK} Tools      {installed_n} installed")
+    else:
+        print(f"{FAIL} Tools      {installed_n} installed, {len(missing)} missing: {', '.join(missing)}")
+    return missing
+
+
+# ---------------------------------------------------------------------------
+# Dotfiles
+# ---------------------------------------------------------------------------
+
+# (symlink_path, repo_source_relative, os_filter_or_None)
+DOTFILES = [
+    ("~/.gitconfig",                  "dotfiles/anyos/gitconfig",             None),
+    ("~/.Rprofile",                   "dotfiles/anyos/Rprofile",              None),
+    ("~/.lintr",                      "dotfiles/anyos/lintr",                 None),
+    ("~/.config/micro/bindings.json", "dotfiles/anyos/micro_bindings.json",   None),
+    ("~/.config/nvim",                "dotfiles/anyos/nvim",                  None),
+    ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
+    ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
+    ("~/.bashrc",                     "dotfiles/linux/bashrc",                "linux"),
+    ("~/.bash_aliases",               "dotfiles/linux/bash_aliases",          "linux"),
+    ("~/.inputrc",                    "dotfiles/linux/inputrc",               "linux"),
+    ("~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+     "dotfiles/windows/powershell_profile.ps1", "windows"),
+]
+
+
+def check_dotfiles(cur_os):
+    ok, broken = 0, []
+    for symlink_path, repo_rel, target_os in DOTFILES:
+        if target_os is not None and target_os != cur_os:
+            continue
+        link = Path(symlink_path).expanduser()
+        source = (REPO_DIR / repo_rel).resolve()
+        if link.is_symlink() and link.resolve() == source:
+            ok += 1
+        else:
+            reason = "not a symlink" if link.exists() else "missing"
+            broken.append((symlink_path, reason))
+
+    total = ok + len(broken)
+    if not broken:
+        print(f"{OK} Dotfiles   {total}/{total} symlinked")
+    else:
+        details = ", ".join(f"{p} ({r})" for p, r in broken)
+        print(f"{FAIL} Dotfiles   {ok}/{total} symlinked: {details}")
+    return not broken
+
+
+class SymlinkPrivilegeError(Exception):
+    """Raised when Windows refuses to create a symlink for lack of privilege."""
+
+
+def create_symlink(link, source):
+    try:
+        link.symlink_to(source)
+    except OSError as e:
+        if getattr(e, "winerror", None) == 1314:  # required privilege not held
+            raise SymlinkPrivilegeError from e
+        raise
+
+
+SYMLINK_PRIVILEGE_HELP = (
+    f"\n{FAIL} Cannot create symlinks: Windows is blocking this without elevated privileges.\n"
+    "  Enable symlink creation without admin by turning on Developer Mode:\n"
+    "    Settings > Privacy & security > For developers > Developer Mode (toggle On)\n"
+    "  Or from an elevated PowerShell:\n"
+    "    reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock\" "
+    "/t REG_DWORD /f /v AllowDevelopmentWithoutDevLicense /d 1\n"
+    "  Then open a new terminal and re-run: toscpm link\n"
+    "  (Alternatively, run this command from a terminal opened as Administrator.)"
+)
+
+
+def link_dotfiles(cur_os):
+    for symlink_path, repo_rel, target_os in DOTFILES:
+        if target_os is not None and target_os != cur_os:
+            continue
+        link = Path(symlink_path).expanduser()
+        source = REPO_DIR / repo_rel
+
+        if not source.exists():
+            print(f"  skip {symlink_path} (source missing)")
+            continue
+        if link.is_symlink() and link.resolve() == source.resolve():
+            print(f"  {OK}    {symlink_path}")
+            continue
+
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if link.exists() or link.is_symlink():
+            backup = link.with_suffix(link.suffix + ".bak")
+            link.rename(backup)
+            print(f"  back {symlink_path} -> {backup.name}")
+
+        create_symlink(link, source)
+        print(f"  link {symlink_path} -> {repo_rel}")
+
+
+# ---------------------------------------------------------------------------
+# Bin scripts
+# ---------------------------------------------------------------------------
+
+# (command_name, repo_source_relative, os_filter_or_None)
+# Executable helpers symlinked into ~/.local/bin so they land on PATH.
+BIN_SCRIPTS = [
+    ("deepsleep", "bin/deepsleep", "macos"),
+]
+
+
+def check_bin(cur_os):
+    ok, broken = 0, []
+    for name, repo_rel, target_os in BIN_SCRIPTS:
+        if target_os is not None and target_os != cur_os:
+            continue
+        link = LOCAL_BIN / name
+        source = (REPO_DIR / repo_rel).resolve()
+        if link.is_symlink() and link.resolve() == source:
+            ok += 1
+        else:
+            reason = "not a symlink" if link.exists() else "missing"
+            broken.append((name, reason))
+
+    total = ok + len(broken)
+    if total == 0:
+        return True
+    if not broken:
+        print(f"{OK} Bin        {total}/{total} linked")
+    else:
+        details = ", ".join(f"{n} ({r})" for n, r in broken)
+        print(f"{FAIL} Bin        {ok}/{total} linked: {details} (run: toscpm link)")
+    return not broken
+
+
+def link_bin(cur_os):
+    LOCAL_BIN.mkdir(parents=True, exist_ok=True)
+    for name, repo_rel, target_os in BIN_SCRIPTS:
+        if target_os is not None and target_os != cur_os:
+            continue
+        link = LOCAL_BIN / name
+        source = REPO_DIR / repo_rel
+
+        if not source.exists():
+            print(f"  skip {name} (source missing)")
+            continue
+        if link.is_symlink() and link.resolve() == source.resolve():
+            print(f"  {OK}    {BIN_DISP}/{name}")
+            continue
+
+        if link.exists() or link.is_symlink():
+            link.rename(link.with_suffix(".bak"))
+        create_symlink(link, source)
+        print(f"  link {BIN_DISP}/{name} -> {repo_rel}")
+
+
+# ---------------------------------------------------------------------------
+# Self-install
+# ---------------------------------------------------------------------------
+
+def self_install_target(cur_os):
+    """Return (path, kind) for the 'toscpm' launcher in ~/.local/bin.
+
+    Windows cannot execute a script via a symlink, so there we install a
+    'toscpm.bat' shim that forwards all arguments to the script instead.
+    """
+    if cur_os == "windows":
+        return LOCAL_BIN / "toscpm.bat", "shim"
+    return LOCAL_BIN / "toscpm", "symlink"
+
+
+def windows_shim_content(script):
+    return f'@echo off\npython "{script}" %*\n'
+
+
+def check_self_install(cur_os):
+    target, kind = self_install_target(cur_os)
+    script = REPO_DIR / "toscpm"
+
+    if kind == "shim":
+        linked = target.is_file() and target.read_text() == windows_shim_content(script)
+    else:
+        linked = target.is_symlink() and target.resolve() == script.resolve()
+
+    in_path = str(LOCAL_BIN) in os.environ.get("PATH", "").split(os.pathsep)
+    if linked and in_path:
+        print(f"{OK} Self       toscpm -> {BIN_DISP}/{target.name}")
+        return True
+    problems = []
+    if not linked:
+        problems.append("not linked")
+    if not in_path:
+        problems.append(f"{BIN_DISP} not in PATH")
+    print(f"{FAIL} Self       {', '.join(problems)} (run: toscpm link)")
+    return False
+
+
+def link_self(cur_os):
+    LOCAL_BIN.mkdir(parents=True, exist_ok=True)
+
+    # Remove the stale launcher from the previous 'check' name.
+    stale = LOCAL_BIN / "check"
+    if stale.is_symlink():
+        stale.unlink()
+        print(f"  rm   {BIN_DISP}/check (renamed to toscpm)")
+
+    target, kind = self_install_target(cur_os)
+    script = REPO_DIR / "toscpm"
+
+    if kind == "shim":
+        content = windows_shim_content(script)
+        if target.is_file() and target.read_text() == content:
+            print(f"  {OK}    {BIN_DISP}/{target.name}")
+            return
+        if target.exists() or target.is_symlink():
+            target.rename(target.with_suffix(".bak"))
+        target.write_text(content)
+        print(f"  shim {BIN_DISP}/{target.name} -> toscpm")
+        return
+
+    if target.is_symlink() and target.resolve() == script.resolve():
+        print(f"  {OK}    {BIN_DISP}/toscpm")
+        return
+    if target.exists() or target.is_symlink():
+        target.rename(target.with_suffix(".bak"))
+    create_symlink(target, script)
+    print(f"  link {BIN_DISP}/toscpm -> toscpm")
+
+
+# ---------------------------------------------------------------------------
+# Repo status
+# ---------------------------------------------------------------------------
+
+def check_repo():
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=REPO_DIR, capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        print(f"{FAIL} Repo       git not found")
+        return True
+
+    lines = [l for l in result.stdout.strip().splitlines() if l]
+    if not lines:
+        print(f"{OK} Repo       clean")
+        return True
+    print(f"{FAIL} Repo       {len(lines)} uncommitted change(s) in {REPO_DIR}")
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+def cmd_check(cur_os):
+    missing = check_tools(cur_os)
+    check_dotfiles(cur_os)
+    check_bin(cur_os)
+    check_self_install(cur_os)
+    check_repo()
+    if missing:
+        print(f"\n  Install (no-admin):  toscpm install")
+        print(f"  Show admin commands: toscpm install -n --admin")
+    return 0
+
+
+def cmd_link(cur_os):
+    try:
+        link_dotfiles(cur_os)
+        link_bin(cur_os)
+        link_self(cur_os)
+    except SymlinkPrivilegeError:
+        print(SYMLINK_PRIVILEGE_HELP)
+        return 1
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="toscpm",
+        description="Manage core dev tools, dotfiles, and repo status across OSes.",
+    )
+    sub = parser.add_subparsers(dest="cmd")
+
+    sub.add_parser("check", help="health check: tools / dotfiles / self / repo")
+
+    p_install = sub.add_parser("install", help="install missing (or named) tools, no-admin")
+    p_install.add_argument("tools", nargs="*", help="specific tools (default: all missing)")
+    p_install.add_argument("-n", "--dry-run", action="store_true", help="print commands instead of running them")
+    p_install.add_argument("--admin", action="store_true", help="print admin (apt/brew/winget) commands (always dry)")
+    p_install.add_argument("--all", action="store_true", help="target every tool, not just the missing ones")
+
+    sub.add_parser("link", help="symlink dotfiles + install self into ~/.local/bin")
+
+    args = parser.parse_args()
+    cur_os = get_os()
+    global ARCH
+    ARCH = get_arch()
+
+    if args.cmd == "install":
+        return install(args.tools, args.all, args.dry_run, args.admin, cur_os)
+    if args.cmd == "link":
+        return cmd_link(cur_os)
+    return cmd_check(cur_os)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
