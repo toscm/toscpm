@@ -199,6 +199,65 @@ def link_dotfiles(current_os):
 
 
 # ---------------------------------------------------------------------------
+# Bin scripts
+# ---------------------------------------------------------------------------
+
+# (command_name, repo_source_relative, os_filter_or_None)
+# Executable helpers symlinked into ~/.local/bin so they land on PATH.
+BIN_SCRIPTS = [
+    ("deepsleep", "bin/deepsleep", "macos"),
+]
+
+
+def check_bin(current_os):
+    ok, broken = 0, []
+
+    for name, repo_rel, target_os in BIN_SCRIPTS:
+        if target_os is not None and target_os != current_os:
+            continue
+        link = LOCAL_BIN / name
+        source = (REPO_DIR / repo_rel).resolve()
+
+        if link.is_symlink() and link.resolve() == source:
+            ok += 1
+        else:
+            reason = "not a symlink" if link.exists() else "missing"
+            broken.append((name, reason))
+
+    total = ok + len(broken)
+    if total == 0:
+        return True
+    if not broken:
+        print(f"{OK} Bin        {total}/{total} linked")
+    else:
+        details = ", ".join(f"{n} ({r})" for n, r in broken)
+        print(f"{FAIL} Bin        {ok}/{total} linked: {details} (run: check --link)")
+
+    return len(broken) == 0
+
+
+def link_bin(current_os):
+    LOCAL_BIN.mkdir(parents=True, exist_ok=True)
+    for name, repo_rel, target_os in BIN_SCRIPTS:
+        if target_os is not None and target_os != current_os:
+            continue
+        link = LOCAL_BIN / name
+        source = REPO_DIR / repo_rel
+
+        if not source.exists():
+            print(f"  skip {name} (source missing)")
+            continue
+        if link.is_symlink() and link.resolve() == source.resolve():
+            print(f"  {OK}    ~/.local/bin/{name}")
+            continue
+
+        if link.exists() or link.is_symlink():
+            link.rename(link.with_suffix(".bak"))
+        create_symlink(link, source)
+        print(f"  link ~/.local/bin/{name} -> {repo_rel}")
+
+
+# ---------------------------------------------------------------------------
 # Self-install
 # ---------------------------------------------------------------------------
 
@@ -309,6 +368,7 @@ def main():
     if args.link:
         try:
             link_dotfiles(current_os)
+            link_bin(current_os)
             link_self(current_os)
         except SymlinkPrivilegeError:
             print(SYMLINK_PRIVILEGE_HELP)
@@ -322,6 +382,7 @@ def main():
         missing_tools = check_tools(current_os)
     if args.dotfiles or show_all:
         check_dotfiles(current_os)
+        check_bin(current_os)
     if show_all:
         check_self_install(current_os)
     if args.repo or show_all:

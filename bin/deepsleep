@@ -1,0 +1,32 @@
+#!/bin/sh
+# deepsleep — keep a clamshell MacBook asleep even with an external display,
+# mouse, and keyboard attached.
+#
+# In clamshell mode macOS wakes the Mac whenever an attached input device
+# twitches. This re-issues `pmset sleepnow` every 10 minutes, so an accidental
+# mouse nudge wakes the machine only briefly before it drops back to sleep.
+#
+# To actually start using the Mac, stop this command (Ctrl-C) and wake the
+# machine as usual.
+
+case "${1:-}" in
+    -h|--help)
+        cat <<'EOF'
+Usage: deepsleep
+
+Keep a clamshell MacBook asleep even with an external display, mouse, and
+keyboard attached. In clamshell mode macOS wakes whenever an attached input
+device twitches; deepsleep re-issues `pmset sleepnow` every 10 minutes, so an
+accidental mouse nudge wakes the machine only briefly before it sleeps again.
+
+To actually start using the Mac, stop deepsleep (Ctrl-C) and wake as usual.
+EOF
+        exit 0
+        ;;
+esac
+
+echo "deepsleep: sleeping now, re-sleeping every 10 min. Ctrl-C to stop."
+while true; do
+    pmset sleepnow >/dev/null
+    sleep 600
+done

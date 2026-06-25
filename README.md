@@ -22,5 +22,11 @@ get ready-to-paste install commands. Use `--tools`, `--dotfiles`, or
 
 ## Scripts
 
+Executables in `bin/` are symlinked into `~/.local/bin` by `check --link`,
+so they land on PATH. `deepsleep` keeps a clamshell MacBook asleep with an
+external display/mouse attached by re-issuing `pmset sleepnow` every 10
+minutes; stop it with Ctrl-C to actually use the machine.
+
 Helper scripts in `scripts/` (`configure_git`, `create_keypair`,
-`create_user`); legacy Ubuntu 22 install scripts in `ubuntu22/`.
+`create_user`) are run directly; legacy Ubuntu 22 install scripts in
+`ubuntu22/`.
