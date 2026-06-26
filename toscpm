@@ -207,8 +207,8 @@ TOOLS = [
                 {"x86_64": "pandoc-{ver}-linux-amd64.tar.gz", "aarch64": "pandoc-{ver}-linux-arm64.tar.gz"},
                 strip_v=False)),
     Tool("claude", "claude",
-         {"macos": "npm i -g @anthropic-ai/claude-code", "linux": "npm i -g @anthropic-ai/claude-code", "windows": "npm i -g @anthropic-ai/claude-code"},
-         Script("npm i -g @anthropic-ai/claude-code")),
+         {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
+         Script("curl -fsSL https://claude.ai/install.sh | bash")),
 ]
 
 
