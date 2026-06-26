@@ -54,6 +54,16 @@ fi
 PS1='\$ '
 export VISUAL=micro
 
+# Build PATH. Some hosts force a shared /opt/miniconda to the front via
+# /etc/environment; its Python has a broken CA bundle (HTTPS fails with
+# CERTIFICATE_VERIFY_FAILED). Drop it, then put my own ~/.local/bin first.
+PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/opt/miniconda' | paste -sd:)"
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+
 # Initialize zoxide (smarter cd)
 if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init bash)"
