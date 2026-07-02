@@ -68,3 +68,12 @@ export PATH
 if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init bash)"
 fi
+
+# clifm wrapper — quit with 'q' and cd to last visited directory (only if installed)
+if command -v clifm >/dev/null 2>&1; then
+    c() {
+        clifm --cd-on-quit "$@"
+        local dir="$(grep "^\*" "${XDG_CONFIG_HOME:=${HOME}/.config}/clifm/.last" 2>/dev/null | cut -d':' -f2)"
+        [ -d "$dir" ] && cd -- "$dir"
+    }
+fi

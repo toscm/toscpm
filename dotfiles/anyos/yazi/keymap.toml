@@ -1,0 +1,81 @@
+# Enter a directory, or open a hovered file
+[[mgr.prepend_keymap]]
+on   = "<Enter>"
+run  = "plugin smart-enter"
+desc = "Enter the child directory, or open the file"
+
+# === 1. Edit the path bar / jump anywhere by typing ========================
+# <C-l>: type or Tab-complete an arbitrary path (Double Commander path bar).
+[[mgr.prepend_keymap]]
+on   = "<C-l>"
+run  = "cd --interactive"
+desc = "Type a path to cd into"
+
+# z / Z: jump by zoxide history / fuzzy-find with fzf (both built-in).
+[[mgr.prepend_keymap]]
+on   = "z"
+run  = "plugin zoxide"
+desc = "Jump to a dir via zoxide"
+
+[[mgr.prepend_keymap]]
+on   = "Z"
+run  = "plugin fzf"
+desc = "Jump to a dir/file via fzf"
+
+# === 2. Run any shell command inside the current dir =======================
+[[mgr.prepend_keymap]]
+on   = ";"
+run  = "shell --interactive"
+desc = "Run a shell command in the cwd"
+
+[[mgr.prepend_keymap]]
+on   = ":"
+run  = "shell --interactive --block"
+desc = "Run a shell command in the cwd (block until it exits)"
+
+# === 3. Quick filter — press f, then type to filter live ===================
+[[mgr.prepend_keymap]]
+on   = "f"
+run  = "filter --smart"
+desc = "Filter the current dir as you type"
+
+# === 4. Bookmarks (yamb plugin) ============================================
+# Core loop = 2 keys: b = save, gb = jump. B/R are optional housekeeping.
+[[mgr.prepend_keymap]]
+on   = "b"
+run  = "plugin yamb -- save"
+desc = "Bookmark the current directory"
+
+# gb: "goto bookmark" — fits yazi's built-in g-prefix goto convention.
+[[mgr.prepend_keymap]]
+on   = ["g", "b"]
+run  = "plugin yamb -- jump_by_fzf"
+desc = "Go to a bookmark (fzf)"
+
+# B: manage = delete a bookmark. R: rename one.
+[[mgr.prepend_keymap]]
+on   = "B"
+run  = "plugin yamb -- delete_by_fzf"
+desc = "Delete a bookmark (fzf)"
+
+[[mgr.prepend_keymap]]
+on   = "R"
+run  = "plugin yamb -- rename_by_fzf"
+desc = "Rename a bookmark (fzf)"
+
+# === 5. Open tmux windows/panes in the current dir =========================
+# Mnemonics mirror tmux's own split keys: % = right, " = below.
+[[mgr.prepend_keymap]]
+on   = "T"
+run  = 'shell -- tmux new-window -c "$PWD"'
+desc = "Open & focus a new tmux window in the cwd"
+
+[[mgr.prepend_keymap]]
+on   = "%"
+run  = 'shell -- tmux split-window -h -c "$PWD"'
+desc = "Open & focus a tmux pane to the right, in the cwd"
+
+[[mgr.prepend_keymap]]
+on   = '"'
+run  = 'shell -- tmux split-window -v -c "$PWD"'
+desc = "Open & focus a tmux pane below, in the cwd"

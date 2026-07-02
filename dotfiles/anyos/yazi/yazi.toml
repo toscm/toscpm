@@ -1,0 +1,4 @@
+# Layout: hide the parent pane — panes are [parent, current, preview].
+# 0/4/4 gives no parent column, equal current + preview.
+[mgr]
+ratio = [0, 4, 4]

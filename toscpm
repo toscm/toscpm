@@ -132,6 +132,10 @@ TOOLS = [
          GhBin("cli/cli",
                {"x86_64": "gh_{ver}_linux_amd64.tar.gz", "aarch64": "gh_{ver}_linux_arm64.tar.gz"},
                [("gh", "gh")])),
+    # glab (GitLab CLI) ships from gitlab.com, not GitHub, so there is no
+    # GhBin no-admin recipe; brew on macOS, admin package elsewhere.
+    Tool("glab", "glab",
+         {"macos": "brew install glab"}),
     Tool("delta", "delta",
          {"macos": "brew install git-delta", "linux": "cargo install git-delta", "windows": "winget install dandavison.delta"},
          GhBin("dandavison/delta",
@@ -474,6 +478,8 @@ DOTFILES = [
     ("~/.lintr",                      "dotfiles/anyos/lintr",                 None),
     ("~/.config/micro/bindings.json", "dotfiles/anyos/micro_bindings.json",   None),
     ("~/.config/nvim",                "dotfiles/anyos/nvim",                  None),
+    ("~/.config/yazi",                "dotfiles/anyos/yazi",                  None),
+    ("~/.claude/CLAUDE.md",           "dotfiles/anyos/claude/CLAUDE.md",      None),
     ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
     ("~/.bashrc",                     "dotfiles/linux/bashrc",                "linux"),
@@ -484,6 +490,21 @@ DOTFILES = [
 ]
 
 
+def is_linked(link, source):
+    """True if `link` is a symlink already pointing at `source`.
+
+    Uses os.path.samefile (inode comparison) rather than comparing
+    resolved path strings, which is wrong on case-insensitive
+    filesystems: Path.resolve() preserves the case it was handed, so a
+    symlink stored as .../Repos/... never string-equals a REPO_DIR of
+    .../repos/... even though they are the same directory.
+    """
+    try:
+        return link.is_symlink() and source.exists() and os.path.samefile(link, source)
+    except OSError:
+        return False
+
+
 def check_dotfiles(cur_os):
     ok, broken = 0, []
     for symlink_path, repo_rel, target_os in DOTFILES:
@@ -491,7 +512,7 @@ def check_dotfiles(cur_os):
             continue
         link = Path(symlink_path).expanduser()
         source = (REPO_DIR / repo_rel).resolve()
-        if link.is_symlink() and link.resolve() == source:
+        if is_linked(link, source):
             ok += 1
         else:
             reason = "not a symlink" if link.exists() else "missing"
@@ -541,13 +562,17 @@ def link_dotfiles(cur_os):
         if not source.exists():
             print(f"  skip {symlink_path} (source missing)")
             continue
-        if link.is_symlink() and link.resolve() == source.resolve():
+        if is_linked(link, source):
             print(f"  {OK}    {symlink_path}")
             continue
 
         link.parent.mkdir(parents=True, exist_ok=True)
         if link.exists() or link.is_symlink():
             backup = link.with_suffix(link.suffix + ".bak")
+            if backup.is_symlink() or backup.is_file():
+                backup.unlink()
+            elif backup.is_dir():
+                shutil.rmtree(backup)
             link.rename(backup)
             print(f"  back {symlink_path} -> {backup.name}")
 
@@ -573,7 +598,7 @@ def check_bin(cur_os):
             continue
         link = LOCAL_BIN / name
         source = (REPO_DIR / repo_rel).resolve()
-        if link.is_symlink() and link.resolve() == source:
+        if is_linked(link, source):
             ok += 1
         else:
             reason = "not a symlink" if link.exists() else "missing"
@@ -601,7 +626,7 @@ def link_bin(cur_os):
         if not source.exists():
             print(f"  skip {name} (source missing)")
             continue
-        if link.is_symlink() and link.resolve() == source.resolve():
+        if is_linked(link, source):
             print(f"  {OK}    {BIN_DISP}/{name}")
             continue
 
