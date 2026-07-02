@@ -1,4 +1,4 @@
-# Installers
+# toscpm
 
 Dotfiles and a single `toscpm` command to verify, install, and set up my
 dev environment on macOS, Linux, and Windows.
@@ -6,8 +6,8 @@ dev environment on macOS, Linux, and Windows.
 ## Installation
 
 ```bash
-git clone https://github.com/toscm/installers.git ~/repos/installers
-~/repos/installers/toscpm link
+git clone https://github.com/toscm/toscpm.git ~/repos/toscpm
+~/repos/toscpm/toscpm link
 ```
 
 This symlinks all dotfiles for the current OS into place (existing files

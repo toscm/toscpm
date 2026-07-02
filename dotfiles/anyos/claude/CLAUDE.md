@@ -26,8 +26,8 @@
 
 ## Environment & tooling (toscpm)
 
-My core dev tools and dotfiles are versioned in the `installers` repo
-(`~/Repos/installers`, GitHub `toscm/installers`) and managed by a single
+My core dev tools and dotfiles are versioned in the `toscpm` repo
+(`~/Repos/toscpm`, GitHub `toscm/toscpm`) and managed by a single
 `toscpm` command:
 
 - `toscpm check` — health check (tools / dotfiles / self / repo).
