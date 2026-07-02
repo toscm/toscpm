@@ -2,7 +2,7 @@
 """toscpm — manage core dev tools, dotfiles, and repo status across OSes.
 
 Subcommands:
-  toscpm check                health check: tools / dotfiles / self / repo
+  toscpm check                health check: tools / dotfiles / self / repo / remotes
   toscpm install [TOOL...]    install missing (or named) tools, no-admin into ~/.local
       -n, --dry-run           print the commands instead of running them
       --admin                 print the admin (apt/brew/winget) commands (always dry)
@@ -94,6 +94,21 @@ class GhTree:
 
 
 @dataclass
+class GlBin:
+    """Like GhBin, but for projects hosted on gitlab.com.
+
+    Release assets live at /-/releases/<tag>/downloads/<asset>, and the
+    latest tag is resolved via the releases/permalink/latest redirect.
+    """
+    repo: str
+    assets: dict          # arch -> asset filename template ({ver} if versioned)
+    wants: list           # list of (basename_in_archive, output_name)
+    strip_v: bool = True
+    archive: str = "tar.gz"
+    versioned: bool = True
+
+
+@dataclass
 class NodeDist:
     """Node.js from nodejs.org/dist, stripped into ~/.local."""
     channel: str = "lts"      # "lts" or "current"
@@ -114,7 +129,7 @@ class Tool:
     name: str
     bin: object               # str | list[str] | {os: str|list, "default": ...}
     admin: dict               # os -> system/canonical install command
-    user_linux: object = None # GhBin|GhTree|NodeDist|Script|None (admin-only)
+    user_linux: object = None # GhBin|GlBin|GhTree|NodeDist|Script|None (admin-only)
     version_flag: str = "--version"
 
 
@@ -132,10 +147,13 @@ TOOLS = [
          GhBin("cli/cli",
                {"x86_64": "gh_{ver}_linux_amd64.tar.gz", "aarch64": "gh_{ver}_linux_arm64.tar.gz"},
                [("gh", "gh")])),
-    # glab (GitLab CLI) ships from gitlab.com, not GitHub, so there is no
-    # GhBin no-admin recipe; brew on macOS, admin package elsewhere.
+    # glab (GitLab CLI) is hosted on gitlab.com, so it uses a GlBin recipe
+    # (GitLab releases) for the Linux no-admin path instead of GhBin.
     Tool("glab", "glab",
-         {"macos": "brew install glab"}),
+         {"macos": "brew install glab", "linux": "brew install glab", "windows": "winget install GLab.GLab"},
+         GlBin("gitlab-org/cli",
+               {"x86_64": "glab_{ver}_linux_amd64.tar.gz", "aarch64": "glab_{ver}_linux_arm64.tar.gz"},
+               [("glab", "glab")])),
     Tool("delta", "delta",
          {"macos": "brew install git-delta", "linux": "cargo install git-delta", "windows": "winget install dandavison.delta"},
          GhBin("dandavison/delta",
@@ -267,6 +285,27 @@ def gh_resolve(spec, arch):
     return ver, asset, f"https://github.com/{spec.repo}/releases/download/{tag}/{asset}"
 
 
+def gl_latest_tag(repo):
+    """Resolve a gitlab.com project's latest release tag via the
+    releases/permalink/latest redirect (mirrors gh_latest_tag).
+
+    https://gitlab.com/<repo>/-/releases/permalink/latest -> .../releases/<tag>
+    """
+    final = _get(f"https://gitlab.com/{repo}/-/releases/permalink/latest", method="HEAD").geturl()
+    return final.rstrip("/").rsplit("/", 1)[-1]
+
+
+def gl_resolve(spec, arch):
+    """Return (version_display, asset_filename, download_url) for a GitLab release."""
+    template = spec.assets[arch]
+    if not spec.versioned:
+        return "latest", template, f"https://gitlab.com/{spec.repo}/-/releases/permalink/latest/downloads/{template}"
+    tag = gl_latest_tag(spec.repo)
+    ver = tag[1:] if spec.strip_v and tag.startswith("v") else tag
+    asset = template.format(ver=ver)
+    return ver, asset, f"https://gitlab.com/{spec.repo}/-/releases/{tag}/downloads/{asset}"
+
+
 # ---------------------------------------------------------------------------
 # Install planning: each step is (label, detail, shell_command)
 # ---------------------------------------------------------------------------
@@ -294,7 +333,8 @@ def linux_steps(spec, t):
              f"mkdir -p {PREFIX} && tar -xJf {t}/{asset} -C {PREFIX} --strip-components=1"),
         ]
 
-    ver, asset, url = gh_resolve(spec, ARCH)
+    resolve = gl_resolve if isinstance(spec, GlBin) else gh_resolve
+    ver, asset, url = resolve(spec, ARCH)
     download = ("Downloading", asset, f"curl -fsSL {url} -o {t}/{asset}")
 
     if isinstance(spec, GhTree):
@@ -732,6 +772,50 @@ def check_repo():
 
 
 # ---------------------------------------------------------------------------
+# Git remotes
+# ---------------------------------------------------------------------------
+
+# Hosts we expect to be able to query, and the CLI that authenticates to each.
+# Only hostnames live here — never tokens. Credentials stay in each CLI's own
+# store (gh keyring / ~/.config/glab-cli), so this repo carries no secrets.
+REMOTES = [
+    ("github.com",            "gh"),
+    ("gitlab.spang-lab.de",   "glab"),
+    ("git.uni-regensburg.de", "glab"),
+]
+
+
+def check_remotes():
+    ok, failed = 0, []
+    for host, cli in REMOTES:
+        if not shutil.which(cli):
+            failed.append((host, f"{cli} not installed"))
+            continue
+        try:
+            res = subprocess.run(
+                [cli, "api", "user", "--hostname", host],
+                capture_output=True, text=True, timeout=20,
+            )
+        except subprocess.TimeoutExpired:
+            failed.append((host, "timed out"))
+            continue
+        if res.returncode == 0:
+            ok += 1
+        else:
+            err = (res.stderr or res.stdout).strip().splitlines()
+            failed.append((host, err[-1] if err else f"exit {res.returncode}"))
+
+    total = ok + len(failed)
+    if not failed:
+        print(f"{OK} Remotes    {total}/{total} reachable")
+    else:
+        details = ", ".join(f"{h} ({r})" for h, r in failed)
+        print(f"{FAIL} Remotes    {ok}/{total} reachable: {details}")
+        print(f"           authenticate with: gh auth login  /  glab auth login --hostname <host>")
+    return not failed
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -741,6 +825,7 @@ def cmd_check(cur_os):
     check_bin(cur_os)
     check_self_install(cur_os)
     check_repo()
+    check_remotes()
     if missing:
         print(f"\n  Install (no-admin):  toscpm install")
         print(f"  Show admin commands: toscpm install -n --admin")
