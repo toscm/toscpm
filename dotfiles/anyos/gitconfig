@@ -15,3 +15,5 @@
 	followTags = true
 [credential "https://git.overleaf.com"]
 	provider = generic
+[credential]
+	helper = store
