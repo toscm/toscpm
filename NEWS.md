@@ -6,6 +6,16 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.3.1
+
+- Fix `install` verification on Windows/macOS: `winget`/`brew` put tools on the
+  system PATH, not in `~/.local/bin`, so verify by resolving the tool through
+  PATH instead of the fixed `~/.local/bin/<tool>` location (which only holds the
+  Linux no-admin binaries).
+- On Windows, rebuild PATH from the registry (machine + user) before running
+  each step so a tool `winget` just installed is visible to the same-run
+  verification instead of failing on the current process's stale PATH.
+
 ## 1.3.0
 
 - Add a `VERSION` file and this `NEWS.md` as the single source of truth for the

@@ -397,17 +397,21 @@ def linux_steps(spec, t):
 def build_plan(tool, cur_os, t):
     """Return dict(status, version, steps). status: ok | admin_only | unavailable."""
     primary = bin_candidates(tool, cur_os)[0]
-    verify = ("Verifying", f"{primary} {tool.version_flag}", f"{BIN}/{primary} {tool.version_flag}")
 
     if cur_os != "linux":
         cmd = tool.admin.get(cur_os)
         if not cmd:
             return {"status": "unavailable"}
+        # winget/brew install onto the system PATH, not ~/.local/bin, so verify
+        # by resolving the tool through PATH rather than a fixed location.
+        verify = ("Verifying", f"{primary} {tool.version_flag}", f"{primary} {tool.version_flag}")
         return {"status": "ok", "version": None, "steps": [("Installing", cmd, cmd), verify]}
 
     if tool.user_linux is None:
         return {"status": "admin_only" if tool.admin.get("linux") else "unavailable"}
 
+    # Linux no-admin recipes install binaries into ~/.local/bin, so verify there.
+    verify = ("Verifying", f"{primary} {tool.version_flag}", f"{BIN}/{primary} {tool.version_flag}")
     ver, steps = linux_steps(tool.user_linux, t)
     steps.append(verify)
     return {"status": "ok", "version": ver, "steps": steps}
@@ -416,6 +420,33 @@ def build_plan(tool, cur_os, t):
 # ---------------------------------------------------------------------------
 # install command
 # ---------------------------------------------------------------------------
+
+def run_env(cur_os):
+    """Environment for running install/verify steps.
+
+    On Windows a `winget install` writes the tool's directory into the user
+    PATH in the registry, but the current process keeps its stale PATH — so a
+    freshly installed tool is invisible to the Verifying step run in the same
+    session. Rebuild PATH from the registry (machine + user, plus ~/.local/bin)
+    so verification sees just-installed tools. Returns None elsewhere, letting
+    subprocess inherit the environment unchanged.
+    """
+    if cur_os != "windows":
+        return None
+    import winreg
+    parts = [str(LOCAL_BIN)]
+    for root, sub in ((winreg.HKEY_LOCAL_MACHINE,
+                       r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+                      (winreg.HKEY_CURRENT_USER, "Environment")):
+        try:
+            with winreg.OpenKey(root, sub) as key:
+                parts.append(os.path.expandvars(winreg.QueryValueEx(key, "Path")[0]))
+        except OSError:
+            pass
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join([*parts, env.get("PATH", "")])
+    return env
+
 
 def select_targets(names, do_all, cur_os):
     by_name = {tool.name: tool for tool in TOOLS}
@@ -502,7 +533,8 @@ def install(names, do_all, dry, admin, cur_os):
         print(f"{tool.name}{tag}")
         ok = True
         for label, detail, cmd in steps:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True,
+                                 env=run_env(cur_os))
             if label == "Verifying" and res.returncode == 0:
                 out = (res.stdout or res.stderr).strip().splitlines()
                 print(f"  {label:<12} {detail} -> {out[0] if out else ''}")
