@@ -8,6 +8,7 @@ Subcommands:
       --admin                 print the admin (apt/brew/winget) commands (always dry)
       --all                   target every tool, not just the missing ones
   toscpm link                 symlink dotfiles + install self into ~/.local/bin
+  toscpm --version            print the toscpm version (from the VERSION file)
 
 Bare `toscpm` runs `check`.
 """
@@ -28,6 +29,14 @@ REPO_DIR = Path(__file__).resolve().parent
 HOME = Path.home()
 LOCAL_PREFIX = HOME / ".local"
 LOCAL_BIN = LOCAL_PREFIX / "bin"
+
+# Single source of truth for the version; kept in sync with the git tag and
+# NEWS.md. Reading via REPO_DIR works through the ~/.local/bin symlink because
+# __file__ is resolved above.
+try:
+    VERSION = (REPO_DIR / "VERSION").read_text().strip()
+except OSError:
+    VERSION = "unknown"
 
 # Absolute paths for the commands we actually run; "~"-forms for display.
 BIN = str(LOCAL_BIN)
@@ -740,7 +749,7 @@ def check_self_install(cur_os):
 
     in_path = str(LOCAL_BIN) in os.environ.get("PATH", "").split(os.pathsep)
     if linked and in_path:
-        print(f"{OK} Self       toscpm -> {BIN_DISP}/{target.name}")
+        print(f"{OK} Self       toscpm {VERSION} -> {BIN_DISP}/{target.name}")
         return True
     problems = []
     if not linked:
@@ -886,6 +895,7 @@ def main():
         prog="toscpm",
         description="Manage core dev tools, dotfiles, and repo status across OSes.",
     )
+    parser.add_argument("-V", "--version", action="version", version=f"toscpm {VERSION}")
     sub = parser.add_subparsers(dest="cmd")
 
     sub.add_parser("check", help="health check: tools / dotfiles / self / repo")

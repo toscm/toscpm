@@ -33,9 +33,16 @@ My core dev tools and dotfiles are versioned in the `toscpm` repo
 - `toscpm check` — health check (tools / dotfiles / self / repo).
 - `toscpm install` — install missing tools, no-admin, into `~/.local`.
 - `toscpm link` — (re)create dotfile + `bin/` symlinks and self-install.
+- `toscpm --version` — print the version (read from the `VERSION` file).
 
 Tracked tools live in the `TOOLS` list and tracked dotfiles in the `DOTFILES`
 list, both inside the `toscpm` script.
+
+The toscpm version is stored in the `VERSION` file (single source of truth)
+with a matching changelog in `NEWS.md`; releases are tagged `vX.Y.Z`.
+**Whenever a tool or dotfile is added or changed, bump `VERSION` and add a
+`NEWS.md` entry** (minor bump for an added/changed tool or dotfile, patch for a
+fix, major for a breaking CLI change), then tag the new version.
 
 **This global `CLAUDE.md` is itself managed by toscpm** — it is symlinked from
 `dotfiles/anyos/claude/CLAUDE.md` in that repo. Edit the file in the repo (the
