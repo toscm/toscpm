@@ -81,6 +81,23 @@ class GhBin:
 
 
 @dataclass
+class GhDeb:
+    """Download a GitHub release .deb, unpack it, drop binaries into ~/.local/bin.
+
+    For tools whose only prebuilt Linux artifact is a Debian package (e.g.
+    HTML Tidy). The .deb is unpacked no-admin with dpkg-deb (falling back to
+    ar + tar), then wanted binaries are located by basename under the
+    extracted tree — exactly like GhBin.
+    """
+    repo: str
+    assets: dict          # arch -> asset filename template ({ver} if versioned)
+    wants: list           # list of (basename_in_archive, output_name)
+    strip_v: bool = True
+    versioned: bool = True
+    archive: str = "deb"  # fixed; kept so linux_steps can share the GhBin path
+
+
+@dataclass
 class GhTree:
     """Strip the top dir of a GitHub release archive into ~/.local.
 
@@ -228,6 +245,21 @@ TOOLS = [
          GhTree("jgm/pandoc",
                 {"x86_64": "pandoc-{ver}-linux-amd64.tar.gz", "aarch64": "pandoc-{ver}-linux-arm64.tar.gz"},
                 strip_v=False)),
+    # typst ships a static musl binary inside typst-<target>/, so GhBin finds it
+    # by basename. Asset names carry no version -> versioned=False, latest/download.
+    Tool("typst", "typst",
+         {"macos": "brew install typst", "linux": "cargo install --locked typst-cli", "windows": "winget install Typst.typst"},
+         GhBin("typst/typst",
+               {a: f"typst-{t}.tar.xz" for a, t in RUST_MUSL.items()},
+               [("typst", "typst")], archive="tar.xz", versioned=False)),
+    # HTML Tidy ships only a .deb for Linux (statically linked to libtidy, so
+    # only the bare `tidy` binary is needed). Required by R CMD check to
+    # validate the HTML manual. No aarch64 Linux release -> x86_64 only.
+    Tool("tidy", "tidy",
+         {"macos": "brew install tidy-html5", "linux": "sudo apt install -y tidy", "windows": "winget install HTACG.tidy"},
+         GhDeb("htacg/tidy-html5",
+               {"x86_64": "tidy-{ver}-Linux-64bit.deb"},
+               [("tidy", "tidy")])),
     Tool("claude", "claude",
          {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
          Script("curl -fsSL https://claude.ai/install.sh | bash")),
@@ -314,6 +346,8 @@ def _extract(archive, src, dst):
     mk = f"mkdir -p {dst} && "
     if archive == "zip":
         return mk + f"unzip -qo {src} -d {dst}"
+    if archive == "deb":
+        return mk + f"{{ dpkg-deb -x {src} {dst} ; }} 2>/dev/null || ( cd {dst} && ar x {src} && tar xf data.tar.* )"
     flag = "-xJf" if archive == "tar.xz" else "-xzf"
     return mk + f"tar {flag} {src} -C {dst}"
 
