@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.4.0
+
+- On Linux, alias `ls` to `eza` (matching macOS) when `eza` is installed, with
+  eza-native `ll`/`la`/`l`/`lt` aliases; fall back to coreutils `ls --color`
+  and its flag set when `eza` is absent.
+
 ## 1.3.1
 
 - Fix `install` verification on Windows/macOS: `winget`/`brew` put tools on the
