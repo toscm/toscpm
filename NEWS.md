@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.5.0
+
+- Add the `ptree` bin script (Linux): processes as a memory-sorted tree,
+  grouped by user, with per-user and grand-total memory summaries. Symlinked
+  into `~/.local/bin` by `toscpm link` on Linux, like `deepsleep` on macOS.
+
 ## 1.4.0
 
 - On Linux, alias `ls` to `eza` (matching macOS) when `eza` is installed, with

@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""ptree - Show processes as a memory-sorted tree, grouped by user."""
+import argparse, subprocess, os, sys
+from collections import defaultdict
+
+def main():
+    ap = argparse.ArgumentParser(description="Show processes as a memory-sorted tree, grouped by user.")
+    ap.add_argument("--hide", action="store_true", help="Hide vscode-cli and R-languageserver processes")
+    ap.add_argument("-u", action="store_true", help="Show only current user's processes")
+    ap.add_argument("-a", "--all", action="store_true", help="Include system/service users (default: only human users)")
+    ap.add_argument("-L", "--max-depth", type=int, default=4, help="Max tree depth to display (default: 4)")
+    ap.add_argument("-w", "--cmd-width", type=int, default=50, help="Max command length shown (default: 50)")
+    args = ap.parse_args()
+
+    color = sys.stdout.isatty()
+    C_PID = "\033[1;36m" if color else ""
+    C_CMD = "\033[0;37m" if color else ""
+    C_USR = "\033[1;35m" if color else ""   # bold magenta for user headers
+    C_HDR = "\033[1m"    if color else ""   # bold for summary
+    C_RST = "\033[0m"    if color else ""
+    C_GRN = "\033[1;32m" if color else ""
+    C_CYN = "\033[1;36m" if color else ""
+    C_YEL = "\033[1;33m" if color else ""
+    C_ORG = "\033[38;5;208m" if color else ""
+    C_RED = "\033[1;31m" if color else ""
+
+    me = os.getlogin()
+    total_mb = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024 * 1024)
+
+    # Get all processes (or just current user's)
+    ps_cmd = ["ps", "-eo", "user=,pid=,ppid=,rss=,args="]
+    if args.u:
+        ps_cmd = ["ps", "-u", me, "-o", "user=,pid=,ppid=,rss=,args="]
+    out = subprocess.check_output(ps_cmd, text=True)
+
+    # Parse into per-user process dicts
+    all_procs = defaultdict(dict)
+    for line in out.strip().splitlines():
+        parts = line.split(None, 4)
+        if len(parts) < 4:
+            continue
+        usr = parts[0]
+        pid, ppid, rss = int(parts[1]), int(parts[2]), int(parts[3])
+        cmd = parts[4] if len(parts) > 4 else ""
+        all_procs[usr][pid] = {"ppid": ppid, "mb": rss / 1024, "cmd": cmd, "children": []}
+
+    # Filter to human users unless -a or -u is given
+    if not args.u and not args.all:
+        import pwd
+        human = {p.pw_name for p in pwd.getpwall() if 1000 <= p.pw_uid < 65000}
+        all_procs = {u: p for u, p in all_procs.items() if u in human}
+
+    def mb_color(mb):
+        pct = mb / total_mb * 100
+        return C_GRN if pct < 0.01 else C_CYN if pct < 0.1 else C_YEL if pct < 1 else C_ORG if pct < 10 else C_RED
+
+    w = args.cmd_width
+    def desc_stats(node):
+        """Return (count, total_mb) of all descendants."""
+        count, total = 0, 0.0
+        for _, child in node["children"]:
+            c, t = desc_stats(child)
+            count += 1 + c
+            total += child["mb"] + t
+        return count, total
+
+    def show(nodes, prefix="", depth=0):
+        if depth > args.max_depth:
+            return
+        sorted_nodes = sorted(nodes, key=lambda x: x[1]["mb"], reverse=True)
+        for i, (pid, p) in enumerate(sorted_nodes):
+            is_last = i == len(sorted_nodes) - 1
+            connector = "└── " if is_last else "├── "
+            extension = "    " if is_last else "│   "
+            cmd = p["cmd"][:w] + "…" if len(p["cmd"]) > w else p["cmd"]
+            c = mb_color(p["mb"])
+            print(f"{prefix}{connector}{C_PID}{pid}{C_RST} {c}{p['mb']:>7.1f} MB{C_RST}  {C_CMD}{cmd}{C_RST}")
+            if depth == args.max_depth and p["children"]:
+                n, mb = desc_stats(p)
+                c = mb_color(mb)
+                print(f"{prefix}{extension}└── {c}[+{n} hidden, {mb:.1f} MB]{C_RST}")
+            else:
+                show(p["children"], prefix + extension, depth + 1)
+
+    def build_and_show(usr, procs):
+        # Optionally hide vscode-cli and R language server processes (+ children)
+        hide = set()
+        if args.hide and usr == me:
+            hide = {pid for pid, p in procs.items()
+                    if ".vscode-server/cli" in p["cmd"] or "reditorsupport.r" in p["cmd"].lower()}
+            changed = True
+            while changed:
+                changed = False
+                for pid, p in procs.items():
+                    if pid not in hide and p["ppid"] in hide:
+                        hide.add(pid)
+                        changed = True
+
+        visible = {pid: p for pid, p in procs.items() if pid not in hide}
+        user_mb = sum(p["mb"] for p in visible.values())
+
+        # Build tree
+        roots = []
+        for pid, p in visible.items():
+            if p["ppid"] in visible:
+                visible[p["ppid"]]["children"].append((pid, p))
+            else:
+                roots.append((pid, p))
+
+        label = f"{C_USR}{usr}{C_RST}"
+        if args.hide and usr == me:
+            label += " (hiding vscode-cli and R-languageserver)"
+        print(label)
+        show(roots)
+        print()
+        return user_mb
+
+    # Show other users first, current user last
+    users = sorted(all_procs.keys())
+    other_users = [u for u in users if u != me]
+    ordered = other_users + ([me] if me in all_procs else [])
+
+    user_mbs = {}
+    for usr in ordered:
+        user_mbs[usr] = build_and_show(usr, all_procs[usr])
+
+    # Summary
+    grand_total = sum(user_mbs.values())
+    print(f"{C_HDR}Memory usage:{C_RST}")
+    for usr in ordered:
+        c = mb_color(user_mbs[usr])
+        print(f"  {usr:<16} {c}{user_mbs[usr]:>8.1f} MB{C_RST}")
+    c = mb_color(grand_total)
+    print(f"  {'Total':<16} {c}{grand_total:>8.1f} MB{C_RST}  / {total_mb:.0f} MB RAM")
+
+main()

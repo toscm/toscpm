@@ -43,9 +43,15 @@ to see their system commands.
 ## Scripts
 
 Executables in `bin/` are symlinked into `~/.local/bin` by `toscpm link`,
-so they land on PATH. `deepsleep` keeps a clamshell MacBook asleep with an
-external display/mouse attached by re-issuing `pmset sleepnow` every 10
-minutes; stop it with Ctrl-C to actually use the machine.
+so they land on PATH. Each is linked only on the OS it targets.
+
+- `deepsleep` (macOS) keeps a clamshell MacBook asleep with an external
+  display/mouse attached by re-issuing `pmset sleepnow` every 10 minutes;
+  stop it with Ctrl-C to actually use the machine.
+- `ptree` (Linux) shows processes as a memory-sorted tree, grouped by user
+  (system users hidden by default). Flags: `-u` (current user only), `-a`
+  (include system/service users), `-L N` (max depth), `-w N` (command
+  width), `--hide` (drop vscode-cli / R-languageserver subtrees).
 
 Helper scripts in `scripts/` (`configure_git`, `create_keypair`,
 `create_user`) are run directly; legacy Ubuntu 22 install scripts in
