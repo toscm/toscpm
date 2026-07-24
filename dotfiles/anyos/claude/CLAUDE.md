@@ -72,3 +72,22 @@ tell me and give me the command to authenticate, e.g.:
 - GitHub: `gh auth login`
 - GitLab: `glab auth login --hostname <host>` (e.g.
   `glab auth login --hostname git.uni-regensburg.de`)
+
+## Markdown and plain-text docs
+
+These docs (README, NEWS, CLAUDE.md, changelogs, etc.) are read as plain text
+as often as rendered, so optimise for the plain-text reading:
+
+- Use bold (`**`) and italics (`*`) very sparingly. A page full of `*` is
+  unpleasant to read unrendered. Reserve emphasis for the rare word that truly
+  needs it; never bold whole sentences or lead every bullet with a bold phrase.
+
+- In a list whose items span multiple lines, put a blank line between items.
+  Tightly packed multiline items are hard to tell apart. In `NEWS.md` there
+  should almost always be a blank line between entries.
+
+- Prefer a bullet listing over a table whenever the table would need more than
+  ~70 characters per line. Wrapped table cells look terrible in plain text;
+  only use tables that stay narrow.
+
+- Wrap prose at ~66 characters; short lines are easier to read.

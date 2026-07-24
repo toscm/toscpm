@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.5.1
+
+- Add a "Markdown and plain-text docs" section to the global `CLAUDE.md`:
+  use bold/italics sparingly, blank-line-separate multiline list items,
+  prefer listings over tables wider than ~70 characters, and wrap prose at
+  ~66 characters.
+
 ## 1.5.0
 
 - Add the `ptree` bin script (Linux): processes as a memory-sorted tree,
