@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.6.0
+
+- Update the git `lg1` alias in the `gitconfig` dotfile and add `lg2` and
+  `lg` (= `lg1`): compact and expanded graph log formats over all refs.
+
 ## 1.5.1
 
 - Add a "Markdown and plain-text docs" section to the global `CLAUDE.md`:
