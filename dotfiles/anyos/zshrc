@@ -1,0 +1,118 @@
+# Shared zsh configuration — sourced by dotfiles/<os>/zshrc.
+#
+# Everything here must be portable across macOS and Linux: no hardcoded
+# home directories, no Homebrew paths, and every optional tool guarded by
+# `command -v`. OS-specific settings belong in the per-OS zshrc that
+# sources this file.
+
+# ---------------------------------------------------------------------------
+# Completion
+# ---------------------------------------------------------------------------
+
+# Use zsh's builtin completion system, unless $ZSH_AUTOCOMPLETE_PLUGIN points
+# at a readable zsh-autocomplete plugin file (set it before sourcing this).
+if [[ -r ${ZSH_AUTOCOMPLETE_PLUGIN:-} ]]; then
+  source "$ZSH_AUTOCOMPLETE_PLUGIN"
+  bindkey -M menuselect '^[' undo # Escape cancels menu and restores buffer
+  zstyle ':autocomplete:*' delay 9999 # Do not auto-open menus while typing
+  zstyle ':autocomplete:*' unique true # Remove duplicates in autocomplete UI
+else
+  autoload -Uz compinit # initialize zsh completion system
+  compinit
+  bindkey '\e[A' history-beginning-search-backward # prefix history search (up)
+  bindkey '\e[B' history-beginning-search-forward # prefix history search (down)
+fi
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' # Case-insensitive matching
+zstyle ':completion:*' remove-all-dups yes # Remove duplicate completion candidates
+
+# ---------------------------------------------------------------------------
+# History and shell options
+# ---------------------------------------------------------------------------
+
+setopt HIST_IGNORE_ALL_DUPS # Keep history itself free of duplicates
+setopt HIST_FIND_NO_DUPS # Keep history itself free of duplicates
+setopt interactive_comments # Allow '#' comments at the interactive prompt
+
+# ---------------------------------------------------------------------------
+# Prompt: current folder only, blue for a normal user, red for root
+# ---------------------------------------------------------------------------
+
+autoload -Uz colors && colors
+if [[ $EUID -eq 0 ]]; then
+  PROMPT='%F{red}%1~> %f'
+else
+  PROMPT='%F{blue}%1~> %f'
+fi
+
+# ---------------------------------------------------------------------------
+# Keybindings
+# ---------------------------------------------------------------------------
+
+bindkey '\e[H' beginning-of-line # Home
+bindkey '\e[F' end-of-line       # End
+
+# ---------------------------------------------------------------------------
+# PATH
+# ---------------------------------------------------------------------------
+
+# Where `toscpm install` puts no-admin binaries and `toscpm link` puts bin/
+# scripts. Prepended so these win over older system copies.
+export PATH="$HOME/.local/bin:$PATH"
+
+# ---------------------------------------------------------------------------
+# Tool integrations (all optional)
+# ---------------------------------------------------------------------------
+
+# zoxide (smarter cd — use 'z' instead of 'cd')
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+
+# fzf keybindings: Ctrl-T (file picker), Alt-C (fuzzy cd), Ctrl-R (history)
+command -v fzf >/dev/null && source <(fzf --zsh)
+
+# yazi wrapper — quit with 'q' and cd to last visited directory
+if command -v yazi >/dev/null; then
+  function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    yazi "$@" --cwd-file="$tmp"
+    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+      builtin cd -- "$cwd"
+    fi
+    rm -f -- "$tmp"
+  }
+fi
+
+# clifm wrapper — quit with 'q' and cd to last visited directory
+if command -v clifm >/dev/null; then
+  function c() {
+    clifm --cd-on-quit "$@"
+    local dir="$(grep "^\*" "${XDG_CONFIG_HOME:=${HOME}/.config}/clifm/.last" 2>/dev/null | cut -d':' -f2)"
+    [ -d "$dir" ] && builtin cd -- "$dir"
+  }
+fi
+
+# ---------------------------------------------------------------------------
+# Aliases (kept in sync with dotfiles/linux/bash_aliases)
+# ---------------------------------------------------------------------------
+
+if command -v eza >/dev/null; then
+  alias ls='eza'
+  alias ll='eza -l'
+  alias la='eza -la'
+  alias l='eza -a'
+  alias lt='eza --tree --level=2'
+else
+  alias ls='ls --color=auto'
+  alias ll='ls -alF'
+  alias la='ls -A'
+  alias l='ls -CF'
+fi
+
+# Debian/Ubuntu ship bat as batcat
+command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
+
+alias gaa='git add -A'
+alias gcm='git commit -m'
+alias gp='git push'
+alias gs='git status'
+alias gd='git diff'
+alias v='nvim'

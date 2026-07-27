@@ -6,6 +6,29 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.7.0
+
+- Manage zsh on Linux, not just on macOS. Previously `~/.zshrc` was only
+  symlinked on macOS, so on a Linux box with zsh as the login shell none of
+  the toscpm config applied — the `ls` -> `eza` alias lived in
+  `dotfiles/linux/bash_aliases`, which only bash reads.
+
+- Split the zsh config into a portable `dotfiles/anyos/zshrc` plus thin
+  per-OS files (`dotfiles/macos/zshrc`, new `dotfiles/linux/zshrc`) that
+  source it. The shared part holds completion, history, prompt, keybindings,
+  the zoxide/fzf/yazi/clifm integrations and the aliases; each per-OS file
+  keeps only what is genuinely OS-specific. All optional tools are now
+  guarded by `command -v`, so the config works on a machine where they are
+  not installed yet.
+
+- Drop hardcoded `/Users/tobi` paths from the macOS zshrc in favour of
+  `$HOME`, and make the zsh-autocomplete plugin opt-in via
+  `$ZSH_AUTOCOMPLETE_PLUGIN` instead of a hardcoded checkout path.
+
+- Give zsh the same eza alias set as bash (`ls`/`ll`/`la`/`l`/`lt`) with a
+  coreutils fallback when eza is absent, and a root-aware prompt (red for
+  root, blue otherwise) on both platforms.
+
 ## 1.6.0
 
 - Update the git `lg1` alias in the `gitconfig` dotfile and add `lg2` and

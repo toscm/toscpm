@@ -597,6 +597,7 @@ DOTFILES = [
     ("~/.claude/CLAUDE.md",           "dotfiles/anyos/claude/CLAUDE.md",      None),
     ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
+    ("~/.zshrc",                      "dotfiles/linux/zshrc",                 "linux"),
     ("~/.bashrc",                     "dotfiles/linux/bashrc",                "linux"),
     ("~/.bash_aliases",               "dotfiles/linux/bash_aliases",          "linux"),
     ("~/.inputrc",                    "dotfiles/linux/inputrc",               "linux"),

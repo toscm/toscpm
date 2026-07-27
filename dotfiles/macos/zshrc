@@ -1,74 +1,21 @@
-use_builtin_completion=true
-if $use_builtin_completion; then
-  autoload -Uz compinit # initialize zsh completion system
-  compinit
-  bindkey '\e[A' history-beginning-search-backward # prefix history search (up)
-  bindkey '\e[B' history-beginning-search-forward # prefix history search (down)
-else
-  source /Users/tobi/Repos/zsh-autocomplete/zsh-autocomplete.plugin.zsh # Load zsh-autocomplete plugin
-  bindkey -M menuselect '^[' undo # Escape cancels menu and restores buffer
-  zstyle ':autocomplete:*' delay 9999 # Do not auto-open menus while typing
-  zstyle ':autocomplete:*' unique true # Remove duplicates in autocomplete UI
-fi
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' # Case-insensitive matching
-zstyle ':completion:*' remove-all-dups yes # Remove duplicate completion candidates
-setopt HIST_IGNORE_ALL_DUPS # Keep history itself free of duplicates
-setopt HIST_FIND_NO_DUPS # Keep history itself free of duplicates
+# macOS zsh configuration.
+#
+# Everything portable lives in ../anyos/zshrc; only macOS-specific settings
+# belong here. Resolve this file's real location (it is reached through the
+# ~/.zshrc symlink) so the shared config is found regardless of where the
+# toscpm repo is checked out.
 
-# Prompt: show only current folder in blue followed by '>'
-autoload -Uz colors && colors
-PROMPT='%F{blue}%1~> %f'
+# Uncomment to use the zsh-autocomplete plugin instead of builtin completion.
+# ZSH_AUTOCOMPLETE_PLUGIN="$HOME/Repos/zsh-autocomplete/zsh-autocomplete.plugin.zsh"
+
+source "${${(%):-%N}:A:h:h}/anyos/zshrc"
 
 # Hide brew hints
 export HOMEBREW_NO_ENV_HINTS=1
 
-# Manual edits
-setopt interactive_comments
 export VISUAL=code
 export EDITOR=hx
+
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-export PATH="$PATH:/Users/tobi/.local/bin"
-export PATH="$PATH:/Users/tobi/Repos/capman/macos"
+export PATH="$PATH:$HOME/Repos/capman/macos"
 export PATH="$PATH:/opt/homebrew/lib/python3.14/site-packages/"
-
-# Enable Home and End keys
-bindkey '\e[H' beginning-of-line
-bindkey '\e[F' end-of-line
-
-# Proper History Search without Plugin
-
-# zoxide (smarter cd — use 'z' instead of 'cd')
-eval "$(zoxide init zsh)"
-
-# fzf keybindings: Ctrl-T (file picker), Alt-C (fuzzy cd), Ctrl-R (history)
-source <(fzf --zsh)
-
-# yazi wrapper — quit with 'q' and cd to last visited directory
-function y() {
-  local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-  yazi "$@" --cwd-file="$tmp"
-  if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-    builtin cd -- "$cwd"
-  fi
-  rm -f -- "$tmp"
-}
-
-# clifm wrapper — quit with 'q' and cd to last visited directory (only if installed)
-if command -v clifm >/dev/null 2>&1; then
-  function c() {
-    clifm --cd-on-quit "$@"
-    local dir="$(grep "^\*" "${XDG_CONFIG_HOME:=${HOME}/.config}/clifm/.last" 2>/dev/null | cut -d':' -f2)"
-    [ -d "$dir" ] && builtin cd -- "$dir"
-  }
-fi
-
-# Aliases
-alias ls='eza'
-alias la='eza -la'
-alias lt='eza --tree --level=2'
-alias gaa='git add -A'
-alias gcm='git commit -m'
-alias gp='git push'
-alias gs='git status'
-alias gd='git diff'
-alias v='nvim'

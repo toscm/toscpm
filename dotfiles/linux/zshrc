@@ -1,0 +1,25 @@
+# Linux zsh configuration.
+#
+# Everything portable lives in ../anyos/zshrc; only Linux-specific settings
+# belong here. Resolve this file's real location (it is reached through the
+# ~/.zshrc symlink) so the shared config is found regardless of where the
+# toscpm repo is checked out.
+
+source "${${(%):-%N}:A:h:h}/anyos/zshrc"
+
+# Resolve hostnames with a single dot as absolute (skip search-domain probing)
+export RES_OPTIONS="ndots:1"
+
+export SAVEHIST=1000
+
+# oh-my-zsh settings, honoured if ~/.oh-my-zsh/oh-my-zsh.sh is ever sourced
+export DISABLE_AUTO_UPDATE="true" # Disable bi-weekly auto-update checks
+export ZSH="$HOME/.oh-my-zsh" # Path to OMZ installation.
+export ZSH_THEME="robbyrussell" # OMZ Theme (https://github.com/robbyrussell/oh-my-zsh/wiki/Themes)
+export HYPHEN_INSENSITIVE="true" # Use hyphen-insensitive completion
+
+# Inside VS Code's integrated terminal, open files in VS Code
+[[ -n $VSCODE_GIT_ASKPASS_NODE ]] && export VISUAL='code' || export VISUAL='micro'
+
+export PATH="$HOME/bin:$PATH"
+[[ -d /usr/local/cuda/bin ]] && export PATH="/usr/local/cuda/bin:$PATH"
