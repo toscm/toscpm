@@ -1,7 +1,23 @@
 # Aliases
 if (Test-Path Alias:r)     { Remove-Item Alias:r }
 if (Test-Path Alias:where) { Remove-Item -Force Alias:where }
-Set-Alias la Get-ChildItem
+
+# ls family: eza when installed (matching bash and zsh), Get-ChildItem otherwise.
+# ls/dir/gci are ReadOnly built-in aliases, so overriding needs -Force; and
+# aliases outrank functions in PowerShell's command resolution, so the ones
+# taking arguments must have their alias removed before the function is defined.
+if (Get-Command eza -ErrorAction SilentlyContinue) {
+    Set-Alias -Name ls -Value eza -Force -Option AllScope
+    foreach ($n in 'll', 'la', 'l', 'lt') {
+        if (Test-Path "Alias:$n") { Remove-Item -Force "Alias:$n" -ErrorAction SilentlyContinue }
+    }
+    function ll { eza -l @args }
+    function la { eza -la @args }
+    function l  { eza -a @args }
+    function lt { eza --tree --level=2 @args }
+} else {
+    Set-Alias la Get-ChildItem
+}
 
 # Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
 function y {

@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.8.0
+
+- Add the eza `ls`/`ll`/`la`/`l`/`lt` aliases to the PowerShell profile, so
+  all three shells now share the same ls family. They fall back to the
+  previous `la` = `Get-ChildItem` when eza is not installed.
+
+  Note that `toscpm install` has no Windows recipe for eza yet, so on
+  Windows the aliases stay dormant until eza is installed by hand.
+
 ## 1.7.0
 
 - Manage zsh on Linux, not just on macOS. Previously `~/.zshrc` was only
