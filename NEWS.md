@@ -6,6 +6,20 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.9.0
+
+- Set the neovim colorscheme to GitHub Dark Default via a new
+  `dotfiles/anyos/nvim/lua/plugins/colorscheme.lua`, which adds the
+  `projekt0n/github-nvim-theme` plugin and points LazyVim at it. The
+  previous LazyVim default, `tokyonight-moon`, has a fairly light grey
+  background (`#222436`); GitHub Dark Default is `#0d1117` and matches
+  the theme I use in VS Code.
+
+- Switch delta back to a unified (non-side-by-side) diff and turn on line
+  numbers, hyperlinks, unlimited wrapping and automatic syntax-theme
+  detection. Side-by-side halves the usable width, which hurts on a
+  narrow terminal.
+
 ## 1.8.0
 
 - Add the eza `ls`/`ll`/`la`/`l`/`lt` aliases to the PowerShell profile, so

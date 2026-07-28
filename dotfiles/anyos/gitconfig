@@ -12,7 +12,11 @@
 	diffFilter = delta --color-only
 [delta]
 	navigate = true
-	side-by-side = true
+	side-by-side = false
+	wrap-max-lines = 0
+	line-numbers = true
+	hyperlinks = true
+	syntax-theme = auto
 [push]
 	followTags = true
 [credential "https://git.overleaf.com"]
