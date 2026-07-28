@@ -6,6 +6,22 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.10.0
+
+- Strip the decoration out of delta's diff output. `hunk-header-style =
+  omit` drops the boxed `┌───┐ / 42: / └───┘` banner that delta printed
+  before every hunk, and `file-decoration-style = none` drops the
+  full-width rule under each filename. The filename stays, in bold, so
+  files are still easy to tell apart. With `line-numbers = true` the
+  hunk banner was pure redundancy anyway — the gutter already says
+  which lines you are looking at.
+
+- Drop `syntax-theme = auto`. There is no such theme, so bat printed
+  `Unknown theme 'auto', using default` above every single diff. Delta
+  already picks a sensible default; run `delta --list-syntax-themes` to
+  choose an explicit one. (This corrects the 1.9.0 note below, which
+  described the setting as working.)
+
 ## 1.9.0
 
 - Set the neovim colorscheme to GitHub Dark Default via a new

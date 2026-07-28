@@ -11,12 +11,14 @@
 [interactive]
 	diffFilter = delta --color-only
 [delta]
-	navigate = true
+	navigate = false
 	side-by-side = false
 	wrap-max-lines = 0
 	line-numbers = true
 	hyperlinks = true
-	syntax-theme = auto
+	hunk-header-style = omit
+	file-style = bold
+	file-decoration-style = none
 [push]
 	followTags = true
 [credential "https://git.overleaf.com"]
