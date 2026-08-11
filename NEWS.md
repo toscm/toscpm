@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.11.0
+
+- Replace the "wrap prose at ~66 characters" markdown rule in
+  `dotfiles/anyos/claude/CLAUDE.md` with "always write one sentence per
+  line (no character limit)". Editors soft-wrap anyway, and one sentence
+  per line greps and diffs far better: rewording a sentence touches
+  exactly one line instead of reflowing a whole paragraph.
+
 ## 1.10.0
 
 - Strip the decoration out of delta's diff output. `hunk-header-style =

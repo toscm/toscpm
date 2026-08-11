@@ -90,4 +90,6 @@ as often as rendered, so optimise for the plain-text reading:
   ~70 characters per line. Wrapped table cells look terrible in plain text;
   only use tables that stay narrow.
 
-- Wrap prose at ~66 characters; short lines are easier to read.
+- Always write one sentence per line (no character limit).
+  Do not hard-wrap a sentence across lines and do not reflow paragraphs; rely on the editor's soft-wrapping instead.
+  One sentence per line greps and diffs far better, because a reworded sentence touches exactly one line.
