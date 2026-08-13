@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.12.0
+
+- Set `options(languageserver.nested_packages_depth = 1)` in `dotfiles/anyos/Rprofile`, so the R language server indexes R packages that live in sub-directories of the opened folder.
+  Without it, opening `~/repos` gives no workspace symbols at all, because the server only indexes a folder that is itself an R package.
+  The option sits outside the `if (interactive())` guard on purpose: the language server starts via `R --no-echo -e "languageserver::run()"`, which is not interactive, so anything inside that guard never reaches it.
+  The setting requires the patched `languageserver` from the fork at `toscm/languageserver` (version `0.3.18.7056`); on stock CRAN `languageserver` it is simply ignored.
+
 ## 1.11.0
 
 - Replace the "wrap prose at ~66 characters" markdown rule in

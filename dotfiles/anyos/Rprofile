@@ -1,3 +1,10 @@
+# Make the R language server index R packages that live in sub-directories of
+# the opened folder, so that "Go to Symbol in Workspace" finds symbols from
+# every repo under ~/repos rather than only from files already opened.
+# This must stay outside the interactive() guard: the language server starts
+# via `R --no-echo -e "languageserver::run()"`, which is not interactive.
+options(languageserver.nested_packages_depth = 1)
+
 if (interactive()) {
     a <- Sys.time()
 
