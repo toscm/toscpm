@@ -6,6 +6,18 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.13.0
+
+- Show the current user and git branch in the tmux status bar, and drop the clock and date to make room.
+  The right side of the bar now reads `user  path  branch`, where the branch part is empty outside a git repo and falls back to the short commit SHA on a detached HEAD.
+
+- Define the status bar once as the `@status_right` user option in `dotfiles/anyos/tmux.conf`.
+  The three places that set `status-right` (startup and the two MOVE MODE exit bindings) now reference it as `#{E:@status_right}` instead of repeating the whole format string.
+  Also raise `status-right-length` from its 40-character default to 100, so the longer bar is not truncated.
+
+- Lower `status-interval` from 15 to 5 seconds in `dotfiles/anyos/tmux.conf`.
+  The branch is produced by an `#()` shell call, which tmux only re-runs on that interval, so a `cd` into another repo used to take up to 15 seconds to show up.
+
 ## 1.12.0
 
 - Set `options(languageserver.nested_packages_depth = 1)` in `dotfiles/anyos/Rprofile`, so the R language server indexes R packages that live in sub-directories of the opened folder.
