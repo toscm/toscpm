@@ -17,5 +17,6 @@ export VISUAL=code
 export EDITOR=hx
 
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+[[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$PATH:$HOME/Repos/capman/macos"
 export PATH="$PATH:/opt/homebrew/lib/python3.14/site-packages/"

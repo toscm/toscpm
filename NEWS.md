@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.15.0
+
+- Put `~/.cargo/bin` on `PATH` in `dotfiles/linux/bashrc`, `dotfiles/linux/zshrc` and `dotfiles/macos/zshrc`.
+  Binaries from `cargo install` and toolchains managed by rustup are then found without sourcing `~/.cargo/env` in every shell.
+  The entry goes behind `~/.local/bin`, so a tool tracked by toscpm still wins over a cargo-installed one of the same name.
+  All three are guarded on the directory existing, so shells on machines without Rust are unaffected.
+
 ## 1.14.0
 
 - Switch the Neovim colorscheme in `dotfiles/anyos/nvim/lua/plugins/colorscheme.lua` from `github_dark_default` to Neovim's built-in `default`.

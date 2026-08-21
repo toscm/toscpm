@@ -58,6 +58,11 @@ export VISUAL=micro
 # /etc/environment; its Python has a broken CA bundle (HTTPS fails with
 # CERTIFICATE_VERIFY_FAILED). Drop it, then put my own ~/.local/bin first.
 PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/opt/miniconda' | paste -sd:)"
+# Rust toolchains installed by rustup put their binaries here.
+case ":$PATH:" in
+    *":$HOME/.cargo/bin:"*) ;;
+    *) [ -d "$HOME/.cargo/bin" ] && PATH="$HOME/.cargo/bin:$PATH" ;;
+esac
 case ":$PATH:" in
     *":$HOME/.local/bin:"*) ;;
     *) PATH="$HOME/.local/bin:$PATH" ;;

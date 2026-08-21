@@ -23,3 +23,4 @@ export HYPHEN_INSENSITIVE="true" # Use hyphen-insensitive completion
 
 export PATH="$HOME/bin:$PATH"
 [[ -d /usr/local/cuda/bin ]] && export PATH="/usr/local/cuda/bin:$PATH"
+[[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
