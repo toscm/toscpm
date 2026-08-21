@@ -1,5 +1,6 @@
--- Colorscheme: GitHub Dark Default (background #0d1117), the same theme I
--- use in VS Code. Browse the alternatives with <leader>uC (live preview).
+-- Colorscheme: Neovim's built-in default (see :help dev_theme).
+-- The github-theme plugin stays installed, so <leader>uC can still preview
+-- github_dark_default and the other alternatives live.
 return {
   {
     "projekt0n/github-nvim-theme",
@@ -12,7 +13,7 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "github_dark_default",
+      colorscheme = "default",
     },
   },
 }

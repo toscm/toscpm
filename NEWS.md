@@ -6,6 +6,18 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.14.0
+
+- Switch the Neovim colorscheme in `dotfiles/anyos/nvim/lua/plugins/colorscheme.lua` from `github_dark_default` to Neovim's built-in `default`.
+  The `projekt0n/github-nvim-theme` plugin stays installed, so `<leader>uC` still previews the GitHub themes.
+
+- Disable spell checking.
+  `vim.opt.spell = false` in `lua/config/options.lua` turns it off globally.
+  That alone does not hold, because LazyVim force-enables `spell` for text, markdown, gitcommit, plaintex and typst buffers, so `lua/config/autocmds.lua` now deletes its `lazyvim_wrap_spell` autocmd group and re-adds a `wrap_no_spell` group carrying only the soft-wrap half of that behaviour.
+  Spell checking is still available per buffer via `<leader>us`.
+
+- Update the pinned plugin commits in `dotfiles/anyos/nvim/lazy-lock.json`, covering 10 plugins including LazyVim itself.
+
 ## 1.13.0
 
 - Show the current user and git branch in the tmux status bar, and drop the clock and date to make room.
