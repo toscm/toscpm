@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.16.0
+
+- Add a three-state word wrap cycle on Alt-Z in `dotfiles/anyos/nvim/lua/plugins/wrap-cycle.lua`, mirroring the word wrap status bar item vstosc adds to VS Code: off, on (wrap at the window edge), and bounded at column 80.
+  Vim has no native bounded soft wrap, so the bounded state uses the `rickhowe/wrapwidth` plugin, which wraps virtually at a column via inline virtual text without touching the buffer.
+  The current state is shown in lualine as "Wrap: off", "Wrap: on" or "Wrap: 80".
+  `linebreak` stays off, so wrapped lines break mid-word at the window edge or column.
+  The plugin is pinned in `dotfiles/anyos/nvim/lazy-lock.json`.
+
 ## 1.15.0
 
 - Put `~/.cargo/bin` on `PATH` in `dotfiles/linux/bashrc`, `dotfiles/linux/zshrc` and `dotfiles/macos/zshrc`.
