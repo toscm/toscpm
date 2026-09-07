@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.18.0
+
+- Link the nvim and yazi configs to the directories those tools actually read on Windows: `%LOCALAPPDATA%/nvim` and `%APPDATA%/yazi/config`.
+  Both were linked to `~/.config/...` on every OS, which Windows nvim and yazi ignore unless `XDG_CONFIG_HOME` is set, so `nvim` started as plain Neovim without LazyVim and yazi ran with none of its config.
+  `toscpm check` reported them as linked the whole time, because the symlink it checked did exist.
+  The two entries are now per-OS in `DOTFILES`; the config itself stays shared under `dotfiles/anyos/`.
+  micro needs no such split: it looks in `~/.config/micro` on every OS.
+
 ## 1.17.0
 
 - Install `tidy` on Windows from the upstream GitHub zip into `~/.local/bin` instead of through winget.

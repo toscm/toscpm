@@ -685,8 +685,16 @@ DOTFILES = [
     ("~/.Rprofile",                   "dotfiles/anyos/Rprofile",              None),
     ("~/.lintr",                      "dotfiles/anyos/lintr",                 None),
     ("~/.config/micro/bindings.json", "dotfiles/anyos/micro_bindings.json",   None),
-    ("~/.config/nvim",                "dotfiles/anyos/nvim",                  None),
-    ("~/.config/yazi",                "dotfiles/anyos/yazi",                  None),
+    # nvim and yazi are XDG-only on macOS and Linux; on Windows they read
+    # %LOCALAPPDATA%/nvim and %APPDATA%/yazi/config instead and ignore
+    # ~/.config entirely, so the destination differs per OS (the config
+    # itself stays shared). micro is XDG on every OS, so it needs no split.
+    ("~/.config/nvim",                "dotfiles/anyos/nvim",                  "macos"),
+    ("~/.config/nvim",                "dotfiles/anyos/nvim",                  "linux"),
+    ("~/AppData/Local/nvim",          "dotfiles/anyos/nvim",                  "windows"),
+    ("~/.config/yazi",                "dotfiles/anyos/yazi",                  "macos"),
+    ("~/.config/yazi",                "dotfiles/anyos/yazi",                  "linux"),
+    ("~/AppData/Roaming/yazi/config", "dotfiles/anyos/yazi",                  "windows"),
     ("~/.claude/CLAUDE.md",           "dotfiles/anyos/claude/CLAUDE.md",      None),
     ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
