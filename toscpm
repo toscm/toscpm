@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -70,8 +71,9 @@ def get_arch():
 
 
 # ---------------------------------------------------------------------------
-# No-admin install recipes (Linux). macOS/Windows use the admin package
-# manager directly (brew/winget are already non-privileged).
+# No-admin install recipes (Linux, plus Windows where winget is not enough).
+# macOS uses the admin package manager directly (brew is already
+# non-privileged), and so does Windows for every tool winget puts on PATH.
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -145,9 +147,42 @@ class NodeDist:
 
 
 @dataclass
+class GhZip:
+    """Windows counterpart of GhBin: a GitHub release .zip -> ~/.local/bin.
+
+    winget is non-privileged, but it is free to install wherever the upstream
+    package wants — often a versioned "C:\\Program Files" directory that lands
+    on no PATH at all, leaving the tool unusable. For those, take the upstream
+    zip and place the wanted files in ~/.local/bin ourselves, as the Linux
+    recipes do. Members are located by basename anywhere in the archive, so
+    its internal layout does not matter. List a companion DLL alongside the
+    .exe: Windows resolves it next to the executable.
+
+    Unpacking runs in-process (urllib + zipfile) rather than through the
+    shell, because cmd.exe has no dependable curl/unzip/install equivalents.
+    """
+    repo: str
+    assets: dict          # arch -> asset filename template ({ver} if versioned)
+    wants: list           # list of (basename_in_zip, output_name)
+    strip_v: bool = True
+    versioned: bool = True
+
+
+@dataclass
 class Script:
     """An official installer one-liner that already targets ~/.local."""
     cmd: str
+
+
+@dataclass
+class PyStep:
+    """An install step that runs in-process instead of through the shell.
+
+    `show` is what --dry-run prints in place of a shell command; `run` is a
+    no-argument callable that raises on failure.
+    """
+    show: str
+    run: object
 
 
 @dataclass
@@ -156,6 +191,7 @@ class Tool:
     bin: object               # str | list[str] | {os: str|list, "default": ...}
     admin: dict               # os -> system/canonical install command
     user_linux: object = None # GhBin|GlBin|GhTree|NodeDist|Script|None (admin-only)
+    user_windows: object = None  # GhZip|None (None -> install via winget)
     version_flag: str = "--version"
 
 
@@ -263,12 +299,18 @@ TOOLS = [
                [("typst", "typst")], archive="tar.xz", versioned=False)),
     # HTML Tidy ships only a .deb for Linux (statically linked to libtidy, so
     # only the bare `tidy` binary is needed). Required by R CMD check to
-    # validate the HTML manual. No aarch64 Linux release -> x86_64 only.
+    # validate the HTML manual. No aarch64 release on either OS -> x86_64 only.
+    # The winget package installs into "C:\\Program Files\\tidy <ver>\\bin" and
+    # adds nothing to PATH, so Windows takes the upstream zip instead; there
+    # tidy.exe is linked against tidy.dll and needs it alongside.
     Tool("tidy", "tidy",
          {"macos": "brew install tidy-html5", "linux": "sudo apt install -y tidy", "windows": "winget install HTACG.tidy"},
          GhDeb("htacg/tidy-html5",
                {"x86_64": "tidy-{ver}-Linux-64bit.deb"},
-               [("tidy", "tidy")])),
+               [("tidy", "tidy")]),
+         user_windows=GhZip("htacg/tidy-html5",
+                            {"x86_64": "tidy-{ver}-win64.zip"},
+                            [("tidy.exe", "tidy.exe"), ("tidy.dll", "tidy.dll")])),
     Tool("claude", "claude",
          {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
          Script("curl -fsSL https://claude.ai/install.sh | bash")),
@@ -394,9 +436,49 @@ def linux_steps(spec, t):
     return ver, steps
 
 
+def download(url, dest):
+    """Stream a URL to dest (in-process; no curl on Windows)."""
+    with _get(url) as response, open(dest, "wb") as out:
+        shutil.copyfileobj(response, out)
+
+
+def unpack_zip(archive, wants):
+    """Copy wanted members of a .zip into ~/.local/bin, matched by basename."""
+    with zipfile.ZipFile(archive) as z:
+        members = {Path(n).name: n for n in z.namelist() if not n.endswith("/")}
+        for base, out in wants:
+            if base not in members:
+                raise FileNotFoundError(f"{base} not in {Path(archive).name}")
+            with z.open(members[base]) as src, open(LOCAL_BIN / out, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def windows_steps(spec, t):
+    """Build (version, steps) for a Windows no-admin recipe."""
+    ver, asset, url = gh_resolve(spec, ARCH)
+    archive = f"{t}/{asset}"
+    outs = ", ".join(out for _, out in spec.wants)
+    return ver, [
+        ("Downloading", asset,
+         PyStep(f"# download {url} -> {archive}", lambda: download(url, archive))),
+        ("Installing", f"{outs} -> {BIN_DISP}",
+         PyStep(f"# unzip {asset}: {outs} -> {BIN_DISP}",
+                lambda: unpack_zip(archive, spec.wants))),
+    ]
+
+
 def build_plan(tool, cur_os, t):
     """Return dict(status, version, steps). status: ok | admin_only | unavailable."""
     primary = bin_candidates(tool, cur_os)[0]
+
+    if cur_os == "windows" and tool.user_windows is not None:
+        if ARCH not in tool.user_windows.assets:
+            return {"status": "unavailable"}
+        # The recipe writes into ~/.local/bin, so verify there.
+        verify = ("Verifying", f"{primary} {tool.version_flag}",
+                  f'"{LOCAL_BIN / primary}" {tool.version_flag}')
+        ver, steps = windows_steps(tool.user_windows, t)
+        return {"status": "ok", "version": ver, "steps": [*steps, verify]}
 
     if cur_os != "linux":
         cmd = tool.admin.get(cur_os)
@@ -446,6 +528,18 @@ def run_env(cur_os):
     env = dict(os.environ)
     env["PATH"] = os.pathsep.join([*parts, env.get("PATH", "")])
     return env
+
+
+def run_step(cmd, cur_os):
+    """Run one install step, shell command or PyStep, as a CompletedProcess."""
+    if isinstance(cmd, PyStep):
+        try:
+            cmd.run()
+        except Exception as e:
+            return subprocess.CompletedProcess(cmd.show, 1, "", f"{type(e).__name__}: {e}")
+        return subprocess.CompletedProcess(cmd.show, 0, "", "")
+    return subprocess.run(cmd, shell=True, capture_output=True, text=True,
+                          env=run_env(cur_os))
 
 
 def select_targets(names, do_all, cur_os):
@@ -526,15 +620,14 @@ def install(names, do_all, dry, admin, cur_os):
         if dry:
             print(f"# {tool.name}{tag}")
             for _, _, cmd in steps:
-                print(cmd)
+                print(cmd.show if isinstance(cmd, PyStep) else cmd)
             print()
             continue
 
         print(f"{tool.name}{tag}")
         ok = True
         for label, detail, cmd in steps:
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True,
-                                 env=run_env(cur_os))
+            res = run_step(cmd, cur_os)
             if label == "Verifying" and res.returncode == 0:
                 out = (res.stdout or res.stderr).strip().splitlines()
                 print(f"  {label:<12} {detail} -> {out[0] if out else ''}")

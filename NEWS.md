@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.17.0
+
+- Install `tidy` on Windows from the upstream GitHub zip into `~/.local/bin` instead of through winget.
+  The winget package `HTACG.tidy` unpacks into a versioned `C:\Program Files\tidy <ver>\bin` and puts nothing on `PATH`, so `tidy` stayed invisible to `toscpm check` and to `R CMD check` (which needs it to validate the HTML manual), and every `toscpm install` retried the winget install and failed with "Found an existing package already installed".
+  A tool can now carry a `user_windows` recipe (`GhZip`) next to `user_linux`; it is downloaded and unpacked in-process, since cmd.exe has no dependable curl/unzip/install equivalents.
+  For tidy that means `tidy.exe` plus the `tidy.dll` it is linked against, which Windows resolves next to the executable.
+
 ## 1.16.1
 
 - Install an extensionless `toscpm` shell shim next to `toscpm.bat` on Windows, so the command is also found in Git Bash and other POSIX shells.
