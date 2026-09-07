@@ -757,37 +757,58 @@ def link_bin(cur_os):
 # Self-install
 # ---------------------------------------------------------------------------
 
-def self_install_target(cur_os):
-    """Return (path, kind) for the 'toscpm' launcher in ~/.local/bin.
+def self_install_targets(cur_os):
+    """Return [(path, kind)] for the 'toscpm' launchers in ~/.local/bin.
 
-    Windows cannot execute a script via a symlink, so there we install a
-    'toscpm.bat' shim that forwards all arguments to the script instead.
+    Windows cannot execute a script via a symlink, so there we install shims
+    that forward all arguments to the script: a 'toscpm.bat' for cmd and
+    PowerShell, plus an extensionless 'toscpm' shell script for Git Bash and
+    other POSIX shells, which do not resolve the '.bat' suffix.
     """
     if cur_os == "windows":
-        return LOCAL_BIN / "toscpm.bat", "shim"
-    return LOCAL_BIN / "toscpm", "symlink"
+        return [(LOCAL_BIN / "toscpm.bat", "bat"), (LOCAL_BIN / "toscpm", "sh")]
+    return [(LOCAL_BIN / "toscpm", "symlink")]
 
 
-def windows_shim_content(script):
-    return f'@echo off\npython "{script}" %*\n'
+def shim_content(kind, script):
+    if kind == "bat":
+        return f'@echo off\npython "{script}" %*\n'
+    # Windows Python understands forward slashes, and Git Bash leaves them
+    # alone when passing the argument through to a Windows program.
+    return f'#!/bin/sh\nexec python "{script.as_posix()}" "$@"\n'
+
+
+def read_shim(target):
+    """Return the shim's text, or None if it is not a readable regular file."""
+    if not target.is_file():
+        return None
+    try:
+        return target.read_text()
+    except OSError:
+        return None
 
 
 def check_self_install(cur_os):
-    target, kind = self_install_target(cur_os)
     script = REPO_DIR / "toscpm"
+    targets = self_install_targets(cur_os)
 
-    if kind == "shim":
-        linked = target.is_file() and target.read_text() == windows_shim_content(script)
-    else:
-        linked = target.is_symlink() and target.resolve() == script.resolve()
+    missing = []
+    for target, kind in targets:
+        if kind == "symlink":
+            linked = target.is_symlink() and target.resolve() == script.resolve()
+        else:
+            linked = read_shim(target) == shim_content(kind, script)
+        if not linked:
+            missing.append(target.name)
 
+    names = ", ".join(f"{BIN_DISP}/{t.name}" for t, _ in targets)
     in_path = str(LOCAL_BIN) in os.environ.get("PATH", "").split(os.pathsep)
-    if linked and in_path:
-        print(f"{OK} Self       toscpm {VERSION} -> {BIN_DISP}/{target.name}")
+    if not missing and in_path:
+        print(f"{OK} Self       toscpm {VERSION} -> {names}")
         return True
     problems = []
-    if not linked:
-        problems.append("not linked")
+    if missing:
+        problems.append(f"not linked: {', '.join(missing)}")
     if not in_path:
         problems.append(f"{BIN_DISP} not in PATH")
     print(f"{FAIL} Self       {', '.join(problems)} (run: toscpm link)")
@@ -797,33 +818,39 @@ def check_self_install(cur_os):
 def link_self(cur_os):
     LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 
-    # Remove the stale launcher from the previous 'check' name.
-    stale = LOCAL_BIN / "check"
-    if stale.is_symlink():
-        stale.unlink()
-        print(f"  rm   {BIN_DISP}/check (renamed to toscpm)")
+    # Remove the stale launchers from the previous 'check' name.
+    for stale_name in ("check", "check.bat"):
+        stale = LOCAL_BIN / stale_name
+        obsolete = stale.is_symlink() or (read_shim(stale) or "").startswith("@echo off")
+        if obsolete:
+            stale.unlink()
+            print(f"  rm   {BIN_DISP}/{stale_name} (renamed to toscpm)")
 
-    target, kind = self_install_target(cur_os)
     script = REPO_DIR / "toscpm"
 
-    if kind == "shim":
-        content = windows_shim_content(script)
-        if target.is_file() and target.read_text() == content:
-            print(f"  {OK}    {BIN_DISP}/{target.name}")
-            return
-        if target.exists() or target.is_symlink():
-            target.rename(target.with_suffix(".bak"))
-        target.write_text(content)
-        print(f"  shim {BIN_DISP}/{target.name} -> toscpm")
-        return
+    for target, kind in self_install_targets(cur_os):
+        backup = target.with_name(target.name + ".bak")
 
-    if target.is_symlink() and target.resolve() == script.resolve():
-        print(f"  {OK}    {BIN_DISP}/toscpm")
-        return
-    if target.exists() or target.is_symlink():
-        target.rename(target.with_suffix(".bak"))
-    create_symlink(target, script)
-    print(f"  link {BIN_DISP}/toscpm -> toscpm")
+        if kind == "symlink":
+            if target.is_symlink() and target.resolve() == script.resolve():
+                print(f"  {OK}    {BIN_DISP}/{target.name}")
+                continue
+            if target.exists() or target.is_symlink():
+                target.replace(backup)
+            create_symlink(target, script)
+            print(f"  link {BIN_DISP}/{target.name} -> toscpm")
+            continue
+
+        content = shim_content(kind, script)
+        if read_shim(target) == content:
+            print(f"  {OK}    {BIN_DISP}/{target.name}")
+            continue
+        if target.exists() or target.is_symlink():
+            target.replace(backup)
+        # newline="\n" keeps the shell shim free of the CRLF that /bin/sh
+        # chokes on; the .bat is fine either way.
+        target.write_text(content, newline="\n")
+        print(f"  shim {BIN_DISP}/{target.name} -> toscpm")
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.16.1
+
+- Install an extensionless `toscpm` shell shim next to `toscpm.bat` on Windows, so the command is also found in Git Bash and other POSIX shells.
+  Those shells do not resolve the `.bat` suffix, so `toscpm install` failed there with "command not found" even though the launcher was installed.
+  The shell shim is written with LF line endings, since `/bin/sh` chokes on CRLF.
+  `toscpm link` now also removes the stale `check.bat` launcher left over from the old `check` name, which it previously only did for the POSIX `check` symlink.
+
 ## 1.16.0
 
 - Add a three-state word wrap cycle on Alt-Z in `dotfiles/anyos/nvim/lua/plugins/wrap-cycle.lua`, mirroring the word wrap status bar item vstosc adds to VS Code: off, on (wrap at the window edge), and bounded at column 80.
