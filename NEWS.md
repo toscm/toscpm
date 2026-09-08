@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.22.0
+
+- Show absolute line numbers in nvim instead of LazyVim's default relative ones (`relativenumber = false`); `<leader>uL` toggles relative numbers back for a session.
+
+- Silence nvim's "Locale does not support UTF-8" health error on Windows by setting the C runtime's ctype locale to `en_US.UTF-8` from `options.lua`.
+  The Windows build of nvim never calls `setlocale(LC_CTYPE, "")`, so `v:ctype` stays `C` unless `LANG` or `LC_ALL` is set, and `:checkhealth` flags it even though nvim is UTF-8 internally and the console code page is already 65001.
+  The setting is guarded by `has("win32")`, so macOS and Linux keep taking the locale from the environment.
+
 ## 1.21.0
 
 - Track a C compiler as the new `cc` tool: `xcode-select --install` on macOS, `build-essential` on Linux, and the WinLibs GCC (`winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e`) on Windows, where the tool is checked as `gcc`.
