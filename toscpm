@@ -237,6 +237,9 @@ TOOLS = [
                {"x86_64": "micro-{ver}-linux64.tar.gz", "aarch64": "micro-{ver}-linux-arm64.tar.gz"},
                [("micro", "micro")]),
          version_flag="-version"),
+    # No windows entry: tmux has no native Windows build (it needs a POSIX
+    # terminal layer), so on Windows it is used inside WSL, where the linux
+    # recipe applies. The winget hits are third-party repackagings, not upstream.
     Tool("tmux", "tmux",
          {"macos": "brew install tmux", "linux": "sudo apt install -y tmux"}),
     Tool("zoxide", "zoxide",
@@ -268,10 +271,12 @@ TOOLS = [
                {a: f"bat-v{{ver}}-{t}.tar.gz" for a, t in RUST_MUSL.items()},
                [("bat", "bat")])),
     Tool("eza", "eza",
-         {"macos": "brew install eza", "linux": "cargo install eza"},
+         {"macos": "brew install eza", "linux": "cargo install eza", "windows": "winget install eza-community.eza"},
          GhBin("eza-community/eza",
                {a: f"eza_{t}.tar.gz" for a, t in RUST_MUSL.items()},
                [("eza", "eza")], versioned=False)),
+    # No windows entry: Windows already ships tree as System32\tree.com, which
+    # PATHEXT resolves for a bare `tree`, so there is nothing to install.
     Tool("tree", "tree",
          {"macos": "brew install tree", "linux": "sudo apt install -y tree"}),
     Tool("python3", {"default": "python3", "windows": "python"},

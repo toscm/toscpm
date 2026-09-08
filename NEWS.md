@@ -6,6 +6,19 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.19.0
+
+- Mark directories in `ls` output with reverse video on bright blue (`7;94`), replacing PowerShell's default `e[44;1m`.
+  The default sets a blue background but no foreground, so directory names keep the scheme's normal foreground: on the light scheme that is #475365 on #3c60dd, a contrast ratio of 1.45:1, and unreadable.
+  A fixed foreground/background pair from the palette cannot fix it either, because Monospace Light is built so that all 16 entries are readable on its near-white background, which makes all 16 of them dark -- the best pair it can form is 4.34:1.
+  Reverse video is not a fixed pair: it makes the text the terminal's own background colour, so the contrast equals the palette entry's contrast against the background, which is the property a colour scheme already guarantees (4.95:1 on Campbell, 12.21:1 on Monospace Light).
+  Being resolved at render time, it also follows the automatic light/dark scheme switch mid-session, which a value baked in at profile load cannot.
+  The style is set on both `$PSStyle.FileInfo.Directory` and `EZA_COLORS`, so `ls` looks the same whether it resolves to eza or falls back to `Get-ChildItem`.
+
+- Install eza on Windows via `winget install eza-community.eza`.
+  Its `TOOLS` entry had recipes only for macOS and Linux, and toscpm treats a missing recipe as "this tool does not apply to this OS", so eza was silently absent from both `toscpm install` and `toscpm check` -- which is why check reported "22 installed" with nothing missing while eza was nowhere on the machine.
+  The two entries that remain Windows-less, tmux and tree, now carry a comment saying why: tmux has no native Windows build and is used under WSL, and Windows already ships tree as `System32	ree.com`.
+
 ## 1.18.0
 
 - Link the nvim and yazi configs to the directories those tools actually read on Windows: `%LOCALAPPDATA%/nvim` and `%APPDATA%/yazi/config`.

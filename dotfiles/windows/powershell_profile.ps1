@@ -19,6 +19,25 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
     Set-Alias la Get-ChildItem
 }
 
+# Directory colours for `ls`, covering both eza and the Get-ChildItem fallback.
+# PowerShell's default $PSStyle.FileInfo.Directory is `e[44;1m: it sets a blue
+# background but no foreground, so names keep the scheme's normal foreground.
+# On the light scheme that is #475365 on #3c60dd -- 1.45:1, and unreadable.
+#
+# A fixed fg/bg pair from the palette cannot fix it either. Monospace Light is
+# built so all 16 entries are readable *on* its near-white background, which
+# makes all 16 of them dark: the best pair it can form is 4.34:1, below the
+# 4.5:1 floor. Any palette background is a dark background there.
+#
+# Reverse video (SGR 7) sidesteps that: it makes the text the terminal's own
+# background colour, so the contrast becomes exactly the palette entry's
+# contrast against the background -- the property both schemes already
+# guarantee. Bright blue gives 4.95:1 on Campbell and 12.21:1 on Monospace
+# Light. The terminal resolves it at render time, so it also follows the
+# automatic scheme switch when Windows toggles light/dark mid-session.
+if ($PSStyle) { $PSStyle.FileInfo.Directory = "$([char]27)[7;94m" }
+$env:EZA_COLORS = "di=7;94"
+
 # Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
 function y {
     $tmp = [System.IO.Path]::GetTempFileName()
