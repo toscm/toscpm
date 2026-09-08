@@ -38,6 +38,20 @@ if (Get-Command eza -ErrorAction SilentlyContinue) {
 if ($PSStyle) { $PSStyle.FileInfo.Directory = "$([char]27)[7;94m" }
 $env:EZA_COLORS = "di=7;94"
 
+# ISO dates. The en-DE culture's short date pattern is dd/MM/yyyy, which is
+# impossible to tell apart from the US MM/dd/yyyy at a glance -- 04/03/2026 is
+# either 4 March or 3 April depending on a setting you cannot see. Clone the
+# culture and override only ShortDatePattern, so number formatting stays German
+# (1.234,50); the pattern is still 10 characters wide, so the Get-ChildItem
+# column does not shift. ShortTimePattern is already 24-hour, so it is left be.
+$culture = [System.Globalization.CultureInfo]::CurrentCulture.Clone()
+$culture.DateTimeFormat.ShortDatePattern = 'yyyy-MM-dd'
+[System.Threading.Thread]::CurrentThread.CurrentCulture = $culture
+
+# eza formats its own dates and ignores the .NET culture. TIME_STYLE is its
+# equivalent knob (GNU ls compatible, so it applies to any ls run from here).
+$env:TIME_STYLE = 'long-iso'
+
 # Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
 function y {
     $tmp = [System.IO.Path]::GetTempFileName()

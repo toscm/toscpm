@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.20.0
+
+- Show dates in ISO format (`yyyy-MM-dd`) in `Get-ChildItem` and eza output.
+  The en-DE culture's short date pattern is `dd/MM/yyyy`, which cannot be told apart from the US `MM/dd/yyyy` by looking at it: `04/03/2026` is either 4 March or 3 April depending on a setting that appears nowhere in the output.
+  The culture is cloned and only `ShortDatePattern` is overridden, so number formatting stays German (`1.234,50`), and the replacement is the same 10 characters wide, so the `Get-ChildItem` column does not shift.
+  `ShortTimePattern` was already 24-hour and is left alone.
+
+  eza formats its own dates and ignores the .NET culture, so it is set separately through `TIME_STYLE=long-iso`, its GNU-ls-compatible equivalent.
+
 ## 1.19.0
 
 - Mark directories in `ls` output with reverse video on bright blue (`7;94`), replacing PowerShell's default `e[44;1m`.
