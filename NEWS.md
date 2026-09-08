@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.23.0
+
+- Disable nvim's Node, Perl, Python 3 and Ruby providers (`vim.g.loaded_*_provider = 0`).
+  No plugin in the config is a remote plugin written in those languages, so the providers were only ever probed for and reported as missing by `:checkhealth`.
+
+- Turn off luarocks support in lazy.nvim (`rocks = { enabled = false }`).
+  No plugin needs luarocks, but lazy.nvim still looked for a hererocks-built Lua 5.1 and luarocks and flagged their absence as an error in `:checkhealth`.
+
 ## 1.22.0
 
 - Show absolute line numbers in nvim instead of LazyVim's default relative ones (`relativenumber = false`); `<leader>uL` toggles relative numbers back for a session.

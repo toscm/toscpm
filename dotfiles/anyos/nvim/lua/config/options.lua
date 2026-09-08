@@ -26,3 +26,12 @@ vim.opt.relativenumber = false
 if vim.fn.has("win32") == 1 then
   vim.cmd.language("ctype", "en_US.UTF-8")
 end
+
+-- No plugin in this config is a remote plugin written in Node, Perl, Python
+-- or Ruby, so the corresponding providers are never used. Disabling them
+-- stops :checkhealth from warning about the missing host packages and skips
+-- probing for them at startup.
+vim.g.loaded_node_provider = 0
+vim.g.loaded_perl_provider = 0
+vim.g.loaded_python3_provider = 0
+vim.g.loaded_ruby_provider = 0
