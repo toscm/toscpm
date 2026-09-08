@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.21.0
+
+- Track a C compiler as the new `cc` tool: `xcode-select --install` on macOS, `build-essential` on Linux, and the WinLibs GCC (`winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e`) on Windows, where the tool is checked as `gcc`.
+  LazyVim's treesitter check wants `cc`, `cl`, or on Windows a `gcc` on PATH, and nvim-treesitter's main branch builds parsers through the tree-sitter CLI, which spawns the compiler as a real executable; without one nvim opens with a "C compiler" error every start.
+  RTools' gcc is deliberately not reused: it lives off PATH in a per-R-release directory (`C:
+tools45`), the toolchain directory drags 170 executables (tidy, jq, sqlite3, cmake, ...) onto PATH, and a symlinked gcc.exe cannot find its own `as` and `cc1`, because gcc resolves them relative to its launch path.
+  The WinLibs winget manifest declares `ArchiveBinariesDependOnPath`, so winget puts its `mingw64\bin` on the user PATH itself, exactly as it does for the other winget-installed tools.
+
 ## 1.20.0
 
 - Show dates in ISO format (`yyyy-MM-dd`) in `Get-ChildItem` and eza output.

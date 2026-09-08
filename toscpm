@@ -316,6 +316,16 @@ TOOLS = [
          user_windows=GhZip("htacg/tidy-html5",
                             {"x86_64": "tidy-{ver}-win64.zip"},
                             [("tidy.exe", "tidy.exe"), ("tidy.dll", "tidy.dll")])),
+    # A C compiler, needed by nvim-treesitter (main branch) to build parsers
+    # through the tree-sitter CLI, which spawns it as a real executable. On
+    # Windows the WinLibs winget package (the one LazyVim recommends) declares
+    # ArchiveBinariesDependOnPath, so winget itself puts mingw64\bin on the
+    # user PATH. RTools' gcc is deliberately not reused: it lives off PATH in a
+    # per-R-release directory, and gcc.exe cannot be symlinked because it
+    # resolves `as`/`cc1` relative to its own launch path.
+    Tool("cc", {"default": "cc", "windows": "gcc"},
+         {"macos": "xcode-select --install", "linux": "sudo apt install -y build-essential",
+          "windows": "winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e"}),
     Tool("claude", "claude",
          {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
          Script("curl -fsSL https://claude.ai/install.sh | bash")),

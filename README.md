@@ -37,7 +37,7 @@ Linux it fetches prebuilt static binaries (preferring musl) straight into
 and Windows it uses `brew` / `winget`, which are already non-privileged.
 
 Tools with no sane no-admin path (`git`, `tmux`, `R`, `curl`, `wget`,
-`python3`, `tree`) are skipped on Linux; run `toscpm install -n --admin`
+`python3`, `tree`, `cc`) are skipped on Linux; run `toscpm install -n --admin`
 to see their system commands.
 
 ## Scripts
