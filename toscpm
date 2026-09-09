@@ -200,6 +200,18 @@ RUST_MUSL = {
     "aarch64": "aarch64-unknown-linux-musl",
 }
 
+# pauk (flashcard CLI, github.com/toscm/pauk): editable install from
+# a clone in the repos dir, venv under cli/.venv, symlinked into
+# ~/.local/bin. Idempotent; `pauk update` pulls + reinstalls later.
+PAUK_INSTALL = (
+    'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
+    '{ [ -d "$REPOS/pauk" ] || git clone git@github.com:toscm/pauk.git "$REPOS/pauk"; } && '
+    'python3 -m venv "$REPOS/pauk/cli/.venv" && '
+    '"$REPOS/pauk/cli/.venv/bin/pip" install -q -e "$REPOS/pauk/cli" && '
+    'mkdir -p "$HOME/.local/bin" && '
+    'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
+)
+
 
 TOOLS = [
     Tool("git", "git",
@@ -329,6 +341,9 @@ TOOLS = [
     Tool("claude", "claude",
          {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
          Script("curl -fsSL https://claude.ai/install.sh | bash")),
+    Tool("pauk", "pauk",
+         {"macos": PAUK_INSTALL, "linux": PAUK_INSTALL},
+         Script(PAUK_INSTALL)),
 ]
 
 

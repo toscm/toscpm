@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.24.0
+
+- Add pauk, the flashcard CLI (github.com/toscm/pauk), as a tracked tool.
+  The no-admin recipe clones the repo into the repos dir, installs the CLI editable into cli/.venv, and symlinks the entry point into ~/.local/bin.
+  Updates are handled by `pauk update` (git pull + reinstall), so toscpm only needs to guarantee presence.
+
 ## 1.23.0
 
 - Disable nvim's Node, Perl, Python 3 and Ruby providers (`vim.g.loaded_*_provider = 0`).
@@ -127,7 +133,6 @@ tools45`), the toolchain directory drags 170 executables (tidy, jq, sqlite3, cma
   line (no character limit)". Editors soft-wrap anyway, and one sentence
   per line greps and diffs far better: rewording a sentence touches
   exactly one line instead of reflowing a whole paragraph.
-
 ## 1.10.0
 
 - Strip the decoration out of delta's diff output. `hunk-header-style =
