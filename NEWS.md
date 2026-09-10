@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.26.0
+
+- `dotfiles/anyos/tmux.conf`: set `window-size latest`, so the terminal is sized after the most recently active client instead of the smallest attached one (a forgotten client on another machine no longer caps the height).
+
 ## 1.25.0
 
 - Add `ffmpeg` (with `ffprobe`) to `TOOLS`.
