@@ -338,6 +338,25 @@ TOOLS = [
     Tool("cc", {"default": "cc", "windows": "gcc"},
          {"macos": "xcode-select --install", "linux": "sudo apt install -y build-essential",
           "windows": "winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e"}),
+    # ffmpeg's GitHub builds carry a build hash in every asset name, so there is
+    # no template a GhBin recipe could fill in. The no-admin path therefore uses
+    # the johnvansickle static build: one stable URL, no shared libraries.
+    Tool("ffmpeg", "ffmpeg",
+         {"macos": "brew install ffmpeg", "linux": "sudo apt install -y ffmpeg", "windows": "winget install Gyan.FFmpeg"},
+         Script("mkdir -p ~/.local/bin && curl -fsSL "
+                "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+                " | tar -xJ -C ~/.local/bin --strip-components=1 --wildcards '*/ffmpeg' '*/ffprobe'"),
+         version_flag="-version"),
+    # piper (neural text-to-speech) is a binary plus its shared libraries,
+    # espeak phoneme data and a voice model, so it cannot live in bin/ alone;
+    # scripts/install_piper puts the tree in ~/.local/share/piper and a wrapper
+    # in ~/.local/bin.
+    Tool("piper", "piper",
+         {"macos": f'"{REPO_DIR}/scripts/install_piper"',
+          "linux": f'"{REPO_DIR}/scripts/install_piper"',
+          "windows": "pip install piper-tts"},
+         Script(f'"{REPO_DIR}/scripts/install_piper"'),
+         version_flag="--help"),
     Tool("claude", "claude",
          {"macos": "curl -fsSL https://claude.ai/install.sh | bash", "linux": "curl -fsSL https://claude.ai/install.sh | bash", "windows": "irm https://claude.ai/install.ps1 | iex"},
          Script("curl -fsSL https://claude.ai/install.sh | bash")),

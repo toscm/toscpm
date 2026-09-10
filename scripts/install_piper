@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Install the piper text-to-speech engine, no-admin, into ~/.local.
+#
+# piper ships as a directory of a binary plus its shared libraries and
+# espeak-ng phoneme data, so it cannot be dropped into ~/.local/bin the way a
+# single static binary can. The tree goes to ~/.local/share/piper and
+# ~/.local/bin/piper is a wrapper that sets LD_LIBRARY_PATH and forwards its
+# arguments. A default English voice is fetched alongside it, because piper
+# without a model file cannot say anything.
+#
+# Usage: install_piper [VOICE]     (default voice: en_GB-alan-medium)
+
+set -euo pipefail
+
+VOICE="${1:-en_GB-alan-medium}"
+REL="2023.11.14-2"
+PREFIX="${HOME}/.local"
+SHARE="${PREFIX}/share/piper"
+BIN="${PREFIX}/bin"
+
+case "$(uname -m)" in
+    x86_64|amd64) ASSET="piper_linux_x86_64.tar.gz" ;;
+    aarch64|arm64) ASSET="piper_linux_aarch64.tar.gz" ;;
+    *) echo "install_piper: unsupported architecture $(uname -m)" >&2; exit 1 ;;
+esac
+
+# --- engine ----------------------------------------------------------------
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+echo "Downloading  ${ASSET}"
+curl -fsSL "https://github.com/rhasspy/piper/releases/download/${REL}/${ASSET}" \
+    -o "${tmp}/${ASSET}"
+
+echo "Extracting   -> ~/.local/share/piper"
+mkdir -p "${SHARE}"
+tar -xzf "${tmp}/${ASSET}" -C "${tmp}"
+cp -a "${tmp}/piper/." "${SHARE}/"
+
+# --- voice -----------------------------------------------------------------
+# Voice files live in the rhasspy/piper-voices repo, addressed by language and
+# quality: en/en_GB/alan/medium/en_GB-alan-medium.onnx. The name encodes the
+# path, so derive it rather than hard-coding a second copy of it.
+lang="${VOICE%%-*}"                  # en_GB
+fam="${VOICE#*-}"; fam="${fam%-*}"   # alan
+qual="${VOICE##*-}"                  # medium
+base="https://huggingface.co/rhasspy/piper-voices/resolve/main/${lang%%_*}/${lang}/${fam}/${qual}"
+
+mkdir -p "${SHARE}/voices"
+for f in "${VOICE}.onnx" "${VOICE}.onnx.json"; do
+    if [ ! -s "${SHARE}/voices/${f}" ]; then
+        echo "Downloading  ${f}"
+        curl -fsSL "${base}/${f}" -o "${SHARE}/voices/${f}"
+    fi
+done
+
+# --- wrapper ---------------------------------------------------------------
+echo "Installing   piper -> ~/.local/bin/piper"
+mkdir -p "${BIN}"
+cat > "${BIN}/piper" <<'WRAPPER'
+#!/usr/bin/env bash
+# Wrapper around ~/.local/share/piper/piper (see toscpm scripts/install_piper).
+# PIPER_VOICE names a model in ~/.local/share/piper/voices; an explicit -m on
+# the command line still wins, because piper takes the last occurrence.
+set -euo pipefail
+share="${HOME}/.local/share/piper"
+voice="${PIPER_VOICE:-en_GB-alan-medium}"
+model="${share}/voices/${voice}.onnx"
+export LD_LIBRARY_PATH="${share}:${LD_LIBRARY_PATH:-}"
+export ESPEAK_DATA_PATH="${share}/espeak-ng-data"
+if [ -f "${model}" ]; then
+    exec "${share}/piper" -m "${model}" "$@"
+fi
+exec "${share}/piper" "$@"
+WRAPPER
+chmod 755 "${BIN}/piper"
+
+echo "piper ${REL} installed with voice ${VOICE}"

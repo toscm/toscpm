@@ -6,6 +6,16 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.25.0
+
+- Add `ffmpeg` (with `ffprobe`) to `TOOLS`.
+  The no-admin Linux path installs the johnvansickle static build rather than a GitHub release, because BtbN's asset names carry a build hash and cannot be templated.
+
+- Add `piper` (neural text-to-speech) to `TOOLS`, installed by the new `scripts/install_piper`.
+  piper ships as a binary plus shared libraries, espeak phoneme data and a separate voice model, so the tree goes to `~/.local/share/piper` and `~/.local/bin/piper` is a wrapper that sets `LD_LIBRARY_PATH` and defaults to the voice named by `PIPER_VOICE` (`en_GB-alan-medium` unless set).
+
+- `dotfiles/anyos/gitconfig`: `core.editor` is `nvim` instead of `code --wait`.
+
 ## 1.24.0
 
 - Add pauk, the flashcard CLI (github.com/toscm/pauk), as a tracked tool.
