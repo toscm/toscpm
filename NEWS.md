@@ -6,6 +6,16 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.28.0
+
+- `dotfiles/anyos/nvim`: plain native statusline instead of lualine.
+  lualine is disabled (new `lua/plugins/lualine.lua`) and `lua/config/statusline.lua` sets 'statusline' to one colour, no icons and no separators: mode, file name, word wrap state, git branch, count of plugins with pending updates, then position as percentage and line:column.
+  The word wrap item is clickable and opens a menu (vim.ui.select) to choose off / on / 80 columns.
+
+- `dotfiles/anyos/nvim`: word wrap state logic moved from `lua/plugins/wrap-cycle.lua` into the new `lua/config/wrap.lua`, shared by the Alt-Z cycle and the statusline menu.
+
+- `dotfiles/anyos/nvim`: `<F1>` and `<leader>p` open the keymaps picker (`Snacks.picker.keymaps`), the closest thing to VS Code's command palette; `<leader>sk` still works.
+
 ## 1.27.0
 
 - `dotfiles/anyos/nvim`: new `lua/plugins/completion.lua`.
