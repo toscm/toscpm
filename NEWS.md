@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.31.0
+
+- `dotfiles/anyos/nvim`: new `lua/plugins/notifier.lua` makes notifications readable.
+  The box spans the editor width minus a two column gutter on each side (line 3, column 3 to column n-2) instead of the default right-aligned 40%, which left about 20 usable columns on a narrow terminal, and long lines now wrap instead of being cut off.
+
 ## 1.30.0
 
 - `dotfiles/anyos/nvim`: colorscheme back to `github_dark_default` instead of Neovim's built-in default.
