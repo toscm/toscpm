@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.33.0
+
+- `dotfiles/anyos/nvim`: the arrow keys select entries in the command line completion menu.
+  blink.cmp's `cmdline` keymap preset only binds `<Tab>`/`<S-Tab>` and `<C-n>`/`<C-p>`, so `<Up>` and `<Down>` are added in `lua/plugins/completion.lua`.
+  With the menu closed they still recall the previous or next command line, as before.
+
 ## 1.32.0
 
 - `dotfiles/anyos/nvim`: notification boxes size themselves to the message again, between 40 columns and the full width, instead of always being full width.
