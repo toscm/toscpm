@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.30.0
+
+- `dotfiles/anyos/nvim`: colorscheme back to `github_dark_default` instead of Neovim's built-in default.
+  `<leader>uC` still previews the others for the running session.
+
 ## 1.29.0
 
 - `dotfiles/anyos/nvim`: lualine again instead of the native statusline, with the nerd font symbols taken out.
