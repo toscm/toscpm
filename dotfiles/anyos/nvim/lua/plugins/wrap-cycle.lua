@@ -3,7 +3,7 @@
 -- edge) -> bounded at a column -> off.
 --
 -- The state logic lives in lua/config/wrap.lua, shared with the clickable
--- statusline item, and the wrapwidth plugin provides the bounded state (see
+-- lualine item, and the wrapwidth plugin provides the bounded state (see
 -- that file for the details).
 return {
   {

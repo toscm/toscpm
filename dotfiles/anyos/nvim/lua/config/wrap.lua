@@ -1,6 +1,6 @@
 -- Word wrap state, shared by the Alt-Z cycle (lua/plugins/wrap-cycle.lua)
--- and the clickable statusline item (lua/config/statusline.lua), so the
--- display can never drift from the actual state.
+-- and the clickable lualine item (lua/plugins/lualine.lua), so the display
+-- can never drift from the actual state.
 --
 -- Three states, mirroring the word wrap status bar item vstosc adds to
 -- VS Code: "off", "on" (wrap at the window edge) and bounded at a column.
@@ -31,7 +31,7 @@ function M.get()
   return vim.b.wrap_bounded or "on"
 end
 
--- Current state as shown in the statusline: "off", "on" or "80".
+-- Current state as shown in lualine: "off", "on" or "80".
 function M.label()
   return tostring(M.get())
 end

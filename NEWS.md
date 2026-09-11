@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.29.0
+
+- `dotfiles/anyos/nvim`: lualine again instead of the native statusline, with the nerd font symbols taken out.
+  `lua/plugins/lualine.lua` now re-enables lualine and strips LazyVim's icons: the diagnostic glyphs become `E:`/`W:`/`I:`/`H:`, the git diff glyphs `+`/`~`/`-`, the pending updates glyph the word `updates`, and the filetype, root directory, readonly, symbol kind and clock icons are dropped.
+  `lua/config/statusline.lua` is gone.
+
+- `dotfiles/anyos/nvim`: the word wrap state is a lualine item again, shown as `off`, `on` or `80` (not `Wrap: off`) and still clickable for the wrap menu.
+
 ## 1.28.0
 
 - `dotfiles/anyos/nvim`: plain native statusline instead of lualine.
