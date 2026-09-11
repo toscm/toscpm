@@ -6,6 +6,16 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.32.0
+
+- `dotfiles/anyos/nvim`: notification boxes size themselves to the message again, between 40 columns and the full width, instead of always being full width.
+  Snacks right-aligns them, so a short message hugs the right gutter and only a long one reaches column 3.
+
+- `dotfiles/anyos/nvim`: notifications stay for five seconds instead of three, errors stay until dismissed with `<leader>un`, and `height.max` goes from 60% to 75% of the editor.
+  A message too tall even for that is not cut silently: the footer says how many lines are left and `<leader>n` shows the full text.
+
+- `dotfiles/anyos/nvim`: `winblend` for notification windows goes from 5 to 0, so the text no longer blends into what is behind the box.
+
 ## 1.31.0
 
 - `dotfiles/anyos/nvim`: new `lua/plugins/notifier.lua` makes notifications readable.
