@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.35.0
+
+- New tool `python`: `uv python install 3.13 --default` puts a managed Python 3.13 and the commands `python`, `python3` and `python3.13` into `~/.local/bin`, which comes before `/usr/bin` on PATH.
+  New shells therefore start 3.13 instead of the system Python.
+  The system `python3` is untouched, so apt and other tools with a `/usr/bin/python3` shebang keep working, and `sudo` does not use this PATH at all.
+  Note that uv's interpreters are marked externally managed: `python3 -m pip install <pkg>` refuses to install outside a virtual environment, so use a venv or `uv tool install`.
+
 ## 1.34.0
 
 - New tool `uv` (Python package and interpreter manager), installed without admin rights by the official installer into `~/.local/bin`.

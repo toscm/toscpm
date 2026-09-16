@@ -217,6 +217,18 @@ PAUK_INSTALL = (
     'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
 )
 
+# Default `python` / `python3` on PATH. uv installs a managed interpreter and
+# links python, python3 and pythonX.Y into ~/.local/bin, which sits before
+# /usr/bin. The system python3 is left alone, so apt and everything else with
+# a /usr/bin/python3 shebang keeps its own interpreter; sudo does not use this
+# PATH either. Pinned instead of "latest" so every machine gets the same
+# version and wheels are available for it.
+PY_DEFAULT = "3.13"
+UV_PY_DEFAULT = (
+    '"$(command -v uv || echo "$HOME/.local/bin/uv")" '
+    f'python install {PY_DEFAULT} --default'
+)
+
 
 TOOLS = [
     Tool("git", "git",
@@ -303,6 +315,12 @@ TOOLS = [
     Tool("uv", "uv",
          {"macos": "brew install uv", "linux": "curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh", "windows": "winget install astral-sh.uv"},
          Script("curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh")),
+    # A modern `python` / `python3` in ~/.local/bin, via uv (see UV_PY_DEFAULT).
+    # No windows entry: the winget Python of the python3 tool already provides
+    # a `python` command on PATH.
+    Tool("python", "python",
+         {"macos": UV_PY_DEFAULT, "linux": UV_PY_DEFAULT},
+         Script(UV_PY_DEFAULT)),
     Tool("R", "R",
          {"macos": "brew install r", "linux": "sudo apt install -y r-base", "windows": "winget install RProject.R"}),
     Tool("node", "node",
