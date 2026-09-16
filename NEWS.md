@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.36.0
+
+- Every recipe that installs Python packages now goes through uv.
+  `pauk` installs itself with `uv pip install --python <venv> -e`, and piper's Windows recipe uses `uv tool install piper-tts` instead of `pip install piper-tts`, so the command lands in its own environment rather than in whatever Python happens to be first on PATH.
+  pauk's venv keeps `--seed`, because `pauk update` reinstalls with `python -m pip`.
+
 ## 1.35.0
 
 - New tool `python`: `uv python install 3.13 --default` puts a managed Python 3.13 and the commands `python`, `python3` and `python3.13` into `~/.local/bin`, which comes before `/usr/bin` on PATH.

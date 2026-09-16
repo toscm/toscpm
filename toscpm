@@ -203,16 +203,17 @@ RUST_MUSL = {
 # pauk (flashcard CLI, github.com/toscm/pauk): editable install from
 # a clone in the repos dir, venv under cli/.venv, symlinked into
 # ~/.local/bin. Idempotent; `pauk update` pulls + reinstalls later.
-# The venv comes from uv, not `python3 -m venv`: pauk needs Python >= 3.10
-# and Debian/Ubuntu ship python3 without ensurepip unless python3-venv is
-# installed (admin). uv downloads its own Python; --seed puts pip into the
-# venv so `pauk update` can reinstall with `python -m pip`.
+# The venv and the editable install both come from uv, not `python3 -m venv`
+# and pip: pauk needs Python >= 3.10 and Debian/Ubuntu ship python3 without
+# ensurepip unless python3-venv is installed (admin). uv downloads its own
+# Python. --seed still puts a real pip into the venv, because `pauk update`
+# reinstalls with `python -m pip`.
 PAUK_INSTALL = (
     'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
     'UV="$(command -v uv || echo "$HOME/.local/bin/uv")"; '
     '{ [ -d "$REPOS/pauk" ] || git clone git@github.com:toscm/pauk.git "$REPOS/pauk"; } && '
     '"$UV" venv -q --clear --seed --managed-python --python ">=3.10" "$REPOS/pauk/cli/.venv" && '
-    '"$REPOS/pauk/cli/.venv/bin/pip" install -q -e "$REPOS/pauk/cli" && '
+    '"$UV" pip install -q --python "$REPOS/pauk/cli/.venv/bin/python" -e "$REPOS/pauk/cli" && '
     'mkdir -p "$HOME/.local/bin" && '
     'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
 )
@@ -382,7 +383,7 @@ TOOLS = [
     Tool("piper", "piper",
          {"macos": f'"{REPO_DIR}/scripts/install_piper"',
           "linux": f'"{REPO_DIR}/scripts/install_piper"',
-          "windows": "pip install piper-tts"},
+          "windows": "uv tool install piper-tts"},
          Script(f'"{REPO_DIR}/scripts/install_piper"'),
          version_flag="--help"),
     Tool("claude", "claude",
