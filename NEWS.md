@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.34.0
+
+- New tool `uv` (Python package and interpreter manager), installed without admin rights by the official installer into `~/.local/bin`.
+
+- `pauk`: the venv is now created with `uv venv --seed --managed-python --python ">=3.10"` instead of `python3 -m venv`.
+  The old recipe failed on Ubuntu 20.04, whose `python3` is 3.8 (pauk needs 3.10 or newer) and lacks `ensurepip` without the admin-only `python3-venv` package.
+  `--seed` keeps pip in the venv, so `pauk update` still works.
+
 ## 1.33.0
 
 - `dotfiles/anyos/nvim`: the arrow keys select entries in the command line completion menu.

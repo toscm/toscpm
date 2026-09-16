@@ -203,10 +203,15 @@ RUST_MUSL = {
 # pauk (flashcard CLI, github.com/toscm/pauk): editable install from
 # a clone in the repos dir, venv under cli/.venv, symlinked into
 # ~/.local/bin. Idempotent; `pauk update` pulls + reinstalls later.
+# The venv comes from uv, not `python3 -m venv`: pauk needs Python >= 3.10
+# and Debian/Ubuntu ship python3 without ensurepip unless python3-venv is
+# installed (admin). uv downloads its own Python; --seed puts pip into the
+# venv so `pauk update` can reinstall with `python -m pip`.
 PAUK_INSTALL = (
     'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
+    'UV="$(command -v uv || echo "$HOME/.local/bin/uv")"; '
     '{ [ -d "$REPOS/pauk" ] || git clone git@github.com:toscm/pauk.git "$REPOS/pauk"; } && '
-    'python3 -m venv "$REPOS/pauk/cli/.venv" && '
+    '"$UV" venv -q --clear --seed --managed-python --python ">=3.10" "$REPOS/pauk/cli/.venv" && '
     '"$REPOS/pauk/cli/.venv/bin/pip" install -q -e "$REPOS/pauk/cli" && '
     'mkdir -p "$HOME/.local/bin" && '
     'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
@@ -293,6 +298,11 @@ TOOLS = [
          {"macos": "brew install tree", "linux": "sudo apt install -y tree"}),
     Tool("python3", {"default": "python3", "windows": "python"},
          {"macos": "brew install python", "linux": "sudo apt install -y python3", "windows": "winget install Python.Python.3.12"}),
+    # uv (Python package + interpreter manager). Listed before pauk, whose
+    # recipe builds its venv with uv.
+    Tool("uv", "uv",
+         {"macos": "brew install uv", "linux": "curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh", "windows": "winget install astral-sh.uv"},
+         Script("curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh")),
     Tool("R", "R",
          {"macos": "brew install r", "linux": "sudo apt install -y r-base", "windows": "winget install RProject.R"}),
     Tool("node", "node",
