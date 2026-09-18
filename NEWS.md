@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.37.0
+
+- tmux: the status bar now shows the current time (`%H:%M`) at the far right, after the git branch.
+  The shared `@status_right` option is now referenced with `#{T:...}` instead of `#{E:...}`, because only `T:` applies strftime to the expanded text.
+
 ## 1.36.0
 
 - Every recipe that installs Python packages now goes through uv.
