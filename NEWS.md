@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.39.0
+
+- `gitconfig`: `https://git.uni-regensburg.de` uses the generic credential provider, like Overleaf already did.
+  Git Credential Manager then asks for username and token instead of attempting GitLab's browser login; machines without GCM ignore the setting.
+
+- Update the pinned plugin commits in `dotfiles/anyos/nvim/lazy-lock.json`, covering 10 plugins including LazyVim itself.
+
 ## 1.38.0
 
 - New Windows dotfiles for Total Commander in `dotfiles/windows/totalcmd`, linked into `%APPDATA%\GHISLER`.

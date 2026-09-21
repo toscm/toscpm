@@ -25,3 +25,5 @@
 	provider = generic
 [credential]
 	helper = store
+[credential "https://git.uni-regensburg.de"]
+	provider = generic
