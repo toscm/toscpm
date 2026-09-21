@@ -1,0 +1,2 @@
+# Strip Total Commander's per-launch counter (filter registered by toscpm link)
+dotfiles/windows/totalcmd/wincmd-shared.ini filter=totalcmd-ini

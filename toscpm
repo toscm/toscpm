@@ -7,7 +7,7 @@ Subcommands:
       -n, --dry-run           print the commands instead of running them
       --admin                 print the admin (apt/brew/winget) commands (always dry)
       --all                   target every tool, not just the missing ones
-  toscpm link                 symlink dotfiles + install self into ~/.local/bin
+  toscpm link                 symlink dotfiles + install self into ~/.local/bin + register git filters
   toscpm --version            print the toscpm version (from the VERSION file)
 
 Bare `toscpm` runs `check`.
@@ -782,6 +782,15 @@ DOTFILES = [
     ("~/.inputrc",                    "dotfiles/linux/inputrc",               "linux"),
     ("~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
      "dotfiles/windows/powershell_profile.ps1", "windows"),
+    # Total Commander rewrites wincmd.ini itself and keeps machine-specific
+    # state there (bookmarks, history, panel paths, window positions), so
+    # only the shareable sections are linked: wincmd.ini redirects
+    # [Configuration], [Layout], [Shortcuts] and [Colors] to wincmd-shared.ini via
+    # RedirectSection=%COMMANDER_INI%\..\wincmd-shared.ini (see NEWS 1.38.0).
+    ("~/AppData/Roaming/GHISLER/wincmd-shared.ini",
+     "dotfiles/windows/totalcmd/wincmd-shared.ini", "windows"),
+    ("~/AppData/Roaming/GHISLER/ignore.txt",
+     "dotfiles/windows/totalcmd/ignore.txt", "windows"),
 ]
 
 
@@ -1099,6 +1108,29 @@ def check_remotes():
 
 
 # ---------------------------------------------------------------------------
+# Git filters
+# ---------------------------------------------------------------------------
+
+# (filter_name, clean_command) for the filters named in .gitattributes.
+# Filter commands live in .git/config, which is not versioned, so every
+# clone has to register them; `toscpm link` does that.
+GIT_FILTERS = [
+    # Total Commander bumps its firstmnu start counter on every launch and
+    # writes it into the shared [Configuration] section; strip it so the
+    # repo does not go dirty each time TC starts.
+    ("totalcmd-ini", "sed -e '/^firstmnu=/d'"),
+]
+
+
+def link_git_filters():
+    for name, clean in GIT_FILTERS:
+        for key, value in ((f"filter.{name}.clean", clean),
+                           (f"filter.{name}.smudge", "cat")):
+            subprocess.run(["git", "config", key, value], cwd=REPO_DIR, check=True)
+        print(f"  {OK}    git filter {name}")
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -1120,6 +1152,7 @@ def cmd_link(cur_os):
         link_dotfiles(cur_os)
         link_bin(cur_os)
         link_self(cur_os)
+        link_git_filters()
     except SymlinkPrivilegeError:
         print(SYMLINK_PRIVILEGE_HELP)
         return 1

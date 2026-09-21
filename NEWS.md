@@ -6,6 +6,27 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.38.0
+
+- New Windows dotfiles for Total Commander in `dotfiles/windows/totalcmd`, linked into `%APPDATA%\GHISLER`.
+  `wincmd.ini` itself stays local because it also holds machine-specific state (directory hotlist, history, panel paths, window positions, plugin paths).
+  Instead, its `[Configuration]`, `[Layout]`, `[Shortcuts]` and `[Colors]` sections each contain only `RedirectSection=%COMMANDER_INI%\..\wincmd-shared.ini`, and TC reads and writes those sections in the linked `wincmd-shared.ini`.
+  On a new machine, add these four lines to the local `wincmd.ini` once, by hand.
+
+- Total Commander: a colour filter greys out dotfiles and dot directories (`ColorFilter1=.* .*\`, with separate normal and dark mode colours), so they stand out even while the ignore list is off.
+
+- Total Commander: Ctrl+. (`C+OEM_.=cm_SwitchIgnoreList`) toggles the ignore list, and the linked `ignore.txt` lists `.*` and `.*\`, so the toggle hides dotfiles and dot directories without touching the hidden and system attributes.
+  The ignore list starts disabled: while it is on, TC also leaves ignored items out when copying a folder, so copying a repo would silently drop `.git`.
+
+- Total Commander: F4 opens files in VS Code via its full path (`Editor="%ProgramFiles%\Microsoft VS Code\Code.exe" "%1"`).
+  A bare `code.exe` failed with "File not found", because only `bin\code.cmd` is on PATH, not `Code.exe`.
+
+- Total Commander: F2 renames the file under the cursor in place (`F2=cm_RenameOnly`, the same as Shift+F6), like in Explorer.
+  This replaces TC's default F2 action of rereading the panel, which Ctrl+R still does.
+
+- `toscpm link` now registers the git filters named in `.gitattributes`.
+  The first one, `totalcmd-ini`, strips TC's `firstmnu` start counter from `wincmd-shared.ini`, which TC bumps on every launch and would otherwise leave the repo dirty.
+
 ## 1.37.0
 
 - tmux: the status bar now shows the current time (`%H:%M`) at the far right, after the git branch.
