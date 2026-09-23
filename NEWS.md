@@ -6,6 +6,23 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.40.0
+
+- "Copy as Linux path": Alt+C in Total Commander and a new Explorer context menu entry copy paths with forward slashes, one per line.
+  On an SSHFS-Win drive the drive letter becomes `/` for a root mount (`\\sshfs.kr\...`) or `~` for a home mount (`\\sshfs.k\...`), looked up per drive with `WNetGetConnectionW`, so `R:\data\x` becomes `/data/x`.
+  Every other path keeps its drive letter, `C:\Users\x` becomes `C:/Users/x` and `\\srv\share` becomes `//srv/share`, which Windows tools, R, Python and git all accept.
+
+- New linked files in `dotfiles/windows/totalcmd`: `copy_as_linux_path.py` does the conversion, and `usercmd.ini` defines `em_CopyAsLinuxPath`, which runs `pythonw.exe copy_as_linux_path.py --list %UL` with the start folder `%COMMANDER_INI%\..`.
+  The script uses only the standard library, and `pythonw` has no console window, so nothing flashes and a press takes about 0.1 s.
+  It writes any error to `%TEMP%\copy_as_linux_path.log`, since `pythonw` has nowhere to show one.
+  The start folder is what locates the script: TC does not expand environment variables in `param=` and reads the `%A` of `%APPDATA%` as its own placeholder.
+
+- `toscpm link` registers the context menu entry under `HKCU\Software\Classes\AllFilesystemObjects\shell\CopyAsLinuxPath`, for files and folders, without admin rights.
+  The command stores the full path of `pythonw.exe` found on PATH at link time, because the shell does not search PATH for verb commands; rerun `toscpm link` if that Python moves.
+  The entry is hidden when several items are selected, because Explorer would start one process per item and each would overwrite the clipboard; Alt+C handles a whole selection.
+
+- Alt+C used to open TC's "Commands" menu; F10 still opens the menu bar.
+
 ## 1.39.0
 
 - `gitconfig`: `https://git.uni-regensburg.de` uses the generic credential provider, like Overleaf already did.

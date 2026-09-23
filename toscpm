@@ -8,6 +8,7 @@ Subcommands:
       --admin                 print the admin (apt/brew/winget) commands (always dry)
       --all                   target every tool, not just the missing ones
   toscpm link                 symlink dotfiles + install self into ~/.local/bin + register git filters
+                              (+ Explorer context menu entries on Windows)
   toscpm --version            print the toscpm version (from the VERSION file)
 
 Bare `toscpm` runs `check`.
@@ -791,6 +792,10 @@ DOTFILES = [
      "dotfiles/windows/totalcmd/wincmd-shared.ini", "windows"),
     ("~/AppData/Roaming/GHISLER/ignore.txt",
      "dotfiles/windows/totalcmd/ignore.txt", "windows"),
+    ("~/AppData/Roaming/GHISLER/usercmd.ini",
+     "dotfiles/windows/totalcmd/usercmd.ini", "windows"),
+    ("~/AppData/Roaming/GHISLER/copy_as_linux_path.py",
+     "dotfiles/windows/totalcmd/copy_as_linux_path.py", "windows"),
 ]
 
 
@@ -1131,6 +1136,45 @@ def link_git_filters():
 
 
 # ---------------------------------------------------------------------------
+# Explorer context menu entries (Windows)
+# ---------------------------------------------------------------------------
+
+# (key under HKCU\Software\Classes, label, command) for shell verbs. They
+# live in the per-user hive, so no admin rights are needed, and the command
+# is stored as REG_EXPAND_SZ so %APPDATA% resolves at click time.
+# AllFilesystemObjects covers files and folders alike. MultiSelectModel
+# "Single" hides the entry for multiple items: Explorer would start one
+# process per item and each would overwrite the clipboard (Alt+C in Total
+# Commander handles a whole selection).
+# {pythonw} becomes the full path of pythonw.exe at link time: the shell
+# does not search PATH for verb commands and fails with "Application not
+# found" on a bare pythonw.exe.
+SHELL_VERBS = [
+    (r"AllFilesystemObjects\shell\CopyAsLinuxPath", "Copy as Linux path",
+     r'"{pythonw}" "%APPDATA%\GHISLER\copy_as_linux_path.py" "%1"'),
+]
+
+
+def link_shell_verbs(cur_os):
+    if cur_os != "windows":
+        return
+    import winreg
+    pythonw = shutil.which("pythonw")
+    if pythonw is None:
+        print(f"  {SKIP}    context menu entries (no pythonw.exe on PATH)")
+        return
+    for key, label, command in SHELL_VERBS:
+        command = command.replace("{pythonw}", pythonw)
+        path = rf"Software\Classes\{key}"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, path) as k:
+            winreg.SetValueEx(k, "MUIVerb", 0, winreg.REG_SZ, label)
+            winreg.SetValueEx(k, "MultiSelectModel", 0, winreg.REG_SZ, "Single")
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, path + r"\command") as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_EXPAND_SZ, command)
+        print(f"  {OK}    context menu: {label}")
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -1153,6 +1197,7 @@ def cmd_link(cur_os):
         link_bin(cur_os)
         link_self(cur_os)
         link_git_filters()
+        link_shell_verbs(cur_os)
     except SymlinkPrivilegeError:
         print(SYMLINK_PRIVILEGE_HELP)
         return 1
