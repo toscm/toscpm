@@ -6,6 +6,21 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.42.0
+
+- New tool recipe for `tmux`: built from the latest release tarball into `~/.local` instead of installed with apt.
+  Ubuntu 20.04 ships 3.0a, which discards OSC 8 hyperlinks (they arrived in 3.4) and rejects the `window-size latest` already in `tmux.conf` (3.1).
+  The build needs a compiler and the libevent and ncurses headers; the recipe checks for those and names the package to install, since only that part needs admin.
+
+- `tmux.conf`: `set -as terminal-features ",*:hyperlinks"`.
+  tmux emits OSC 8 only for terminals it believes support them, and believes that of almost no TERM value, so Windows Terminal and iTerm2 have to be told explicitly.
+  Without this line even tmux 3.7 swallows the link.
+
+- `code`: in a plain SSH session it now lists the VS Code windows currently connected to this host and offers to open the path in one of them, falling back to the link when none is running, when the offer is declined, or when stdin is not a terminal.
+  Windows are found by connecting to each `vscode-ipc-*.sock` in the runtime directory, and labelled with the address of the machine that opened them, read from the `SSH_CLIENT` of the process listening on the socket.
+  Set `CODE_OPEN=never` to always get the link.
+  The link is now emitted as an OSC 8 hyperlink under tmux 3.4 and newer, and as a bare URL under older ones.
+
 ## 1.41.1
 
 - `code`: a tmux pane that outlived the VS Code window it was started in now prints the link instead of failing with `Unable to connect to VS Code server`.

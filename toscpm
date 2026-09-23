@@ -231,6 +231,41 @@ UV_PY_DEFAULT = (
     f'python install {PY_DEFAULT} --default'
 )
 
+# tmux, built from the latest release tarball into ~/.local. The distro packages
+# are too old for what tmux.conf asks of them: Ubuntu 20.04 ships 3.0a, while
+# OSC 8 hyperlinks (which make the link from `code` clickable) need 3.4 and
+# `window-size latest` needs 3.1. The compiler and the libevent and ncurses
+# headers have to be there already, since installing those needs admin, so the
+# recipe checks for them and names the package to install.
+# configure insists on yacc even though the tarball ships a pre-generated
+# cmd-parse.c. A stub that fails loudly stands in for it: should make ever want
+# to regenerate the parser, the build stops rather than quietly producing a
+# half-built tmux.
+TMUX_BUILD = r"""set -e
+for h in event2/event.h curses.h; do
+    [ -e "/usr/include/$h" ] || {
+        echo "tmux needs $h: sudo apt install -y libevent-dev libncurses-dev" >&2
+        exit 1
+    }
+done
+D="$(mktemp -d)"
+trap 'rm -rf "$D"' EXIT
+TAG="$(curl -fsSL https://api.github.com/repos/tmux/tmux/releases/latest \
+       | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+[ -n "$TAG" ] || { echo "tmux: could not read the latest release tag" >&2; exit 1; }
+curl -fsSL "https://github.com/tmux/tmux/releases/download/$TAG/tmux-$TAG.tar.gz" \
+    | tar xz -C "$D"
+mkdir -p "$D/stub"
+printf '#!/bin/sh\necho "stub yacc: cmd-parse.c should not need regenerating" >&2\nexit 1\n' \
+    > "$D/stub/yacc"
+chmod +x "$D/stub/yacc"
+cd "$D/tmux-$TAG"
+touch cmd-parse.c
+export PATH="$D/stub:$PATH"
+./configure --prefix="$HOME/.local" >/dev/null
+make -j"$(nproc)" >/dev/null
+make install >/dev/null"""
+
 
 TOOLS = [
     Tool("git", "git",
@@ -272,7 +307,8 @@ TOOLS = [
     # terminal layer), so on Windows it is used inside WSL, where the linux
     # recipe applies. The winget hits are third-party repackagings, not upstream.
     Tool("tmux", "tmux",
-         {"macos": "brew install tmux", "linux": "sudo apt install -y tmux"}),
+         {"macos": "brew install tmux", "linux": "sudo apt install -y tmux"},
+         Script(TMUX_BUILD)),
     Tool("zoxide", "zoxide",
          {"macos": "brew install zoxide", "linux": "curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh", "windows": "winget install ajeetdsouza.zoxide"},
          Script("curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh")),

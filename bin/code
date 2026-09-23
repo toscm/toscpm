@@ -3,34 +3,42 @@
 
 Inside a VS Code terminal this is a pass-through to the real `code` CLI from
 ~/.vscode-server. In a plain SSH session there is no channel back to the local
-machine, so instead a `vscode://vscode-remote/ssh-remote+<host>/<path>` link is
-printed. Clicking it (Ctrl-click on Windows Terminal, Cmd-click in iTerm2) makes
-the local VS Code open that path over Remote-SSH.
+machine, so the VS Code windows currently connected to this host are offered
+instead, and failing that a `vscode://vscode-remote/ssh-remote+<host>/<path>`
+link is printed. Clicking that link (Ctrl-click in Windows Terminal, Cmd-click
+in iTerm2) makes the local VS Code open the path over Remote-SSH.
 """
 import os
+import re
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import quote
 
 HELP = """\
 Usage: code [PATH ...]
 
-Print a vscode:// link that opens PATH (default: the current directory) in the
-VS Code on your local machine, connected to this host via Remote-SSH. Ctrl-click
-the link in Windows Terminal, or Cmd-click it in iTerm2, to open it. Terminal.app
-and tmux 3.0 cannot make it clickable, so there copy the URL by hand.
+Open PATH (default: the current directory) in the VS Code on your local
+machine, connected to this host via Remote-SSH.
+
+Inside a VS Code terminal the real `code` CLI from ~/.vscode-server is used, so
+all of its options keep working. In a plain SSH session, and in a tmux pane that
+outlived the window it was started in, the VS Code windows currently connected
+to this host are listed and one can be picked; declining, or finding none,
+prints a vscode:// link instead. Ctrl-click it in Windows Terminal, or Cmd-click
+it in iTerm2. Terminal.app and tmux before 3.4 cannot make it clickable, so
+there copy the URL by hand.
 
 A trailing :LINE or :LINE:COL on a file path is kept, so `code file.py:42` opens
 file.py at line 42.
 
-Inside a VS Code terminal the real `code` CLI from ~/.vscode-server is used
-instead, so all of its options keep working. A tmux pane that outlived the
-window it was started in counts as a plain SSH session and gets the link.
-
-The link names this host as `%s`, which has to match the Host entry in the ssh
-config of the local machine. Set CODE_SSH_HOST to use a different name.
+Environment:
+  CODE_SSH_HOST   the name the link gives this host, which has to match the Host
+                  entry in the ssh config of the local machine (default: %s)
+  CODE_OPEN       ask (default) to offer the connected windows, never to always
+                  print the link
 """
 
 # The alias the *local* machine uses for this host in its ~/.ssh/config. The
@@ -38,9 +46,169 @@ config of the local machine. Set CODE_SSH_HOST to use a different name.
 # machine, which is the usual case.
 HOST = os.environ.get("CODE_SSH_HOST") or os.uname().nodename.split(".")[0]
 
+RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
 
-def real_code():
+
+def connectable(path):
+    """Whether something is actually listening on this unix socket.
+
+    The socket files outlive the windows that made them, so the file existing
+    says nothing; only a connection tells a live window from a leftover.
+    """
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(0.2)
+    try:
+        sock.connect(str(path))
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def ipc_alive():
+    """Whether $VSCODE_IPC_HOOK_CLI still leads to a VS Code window.
+
+    A tmux pane keeps the variable of the window it was started in long after
+    that window is gone, so the variable alone cannot be trusted.
+    """
+    path = os.environ.get("VSCODE_IPC_HOOK_CLI")
+    return bool(path) and connectable(path)
+
+
+def socket_pids():
+    """Map inode -> pids holding it, for every unix socket this user has open."""
+    pids = {}
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        try:
+            for fd in os.listdir(f"/proc/{pid}/fd"):
+                target = os.readlink(f"/proc/{pid}/fd/{fd}")
+                if target.startswith("socket:["):
+                    pids.setdefault(target[8:-1], []).append(pid)
+        except OSError:
+            pass  # a process that exited, or one belonging to another user
+    return pids
+
+
+def socket_inodes():
+    """Map unix socket path -> inode of the socket listening on it.
+
+    A path also appears once per connected peer, with flags 0 and inode 0 - the
+    probe in connectable() makes one of those itself - so only the row carrying
+    SO_ACCEPTCON identifies the window's own socket.
+    """
+    inodes = {}
+    with open("/proc/net/unix") as fh:
+        next(fh, None)
+        for line in fh:
+            fields = line.split()
+            if len(fields) >= 8 and fields[3] == "00010000":
+                inodes[fields[7]] = fields[6]
+    return inodes
+
+
+def proc_env(pid):
+    try:
+        with open(f"/proc/{pid}/environ") as fh:
+            return dict(
+                item.split("=", 1) for item in fh.read().split("\0") if "=" in item
+            )
+    except OSError:
+        return {}
+
+
+def candidates():
+    """The live VS Code IPC sockets, newest first, each with what is known of it."""
+    live = [p for p in RUNTIME_DIR.glob("vscode-ipc-*.sock") if connectable(p)]
+    if not live:
+        return []
+    inodes, pids = socket_inodes(), socket_pids()
+    found = []
+    for path in sorted(live, key=lambda p: p.stat().st_mtime, reverse=True):
+        owner = (pids.get(inodes.get(str(path), ""), []) or [None])[0]
+        env = proc_env(owner) if owner else {}
+        # The server is started over ssh by the local machine, so its own
+        # environment names the machine whose window this socket belongs to.
+        client = (env.get("SSH_CLIENT") or env.get("SSH_CONNECTION") or "").split()
+        server = re.search(
+            r"(.*/cli/servers/[^/]+/server)\b",
+            env.get("VSCODE_AGENT_FOLDER", "") + " " + (proc_exe(owner) or ""),
+        )
+        found.append(
+            {
+                "path": str(path),
+                "client": client[0] if client else None,
+                "server": server.group(1) if server else None,
+                "age": age(path.stat().st_mtime),
+            }
+        )
+    return found
+
+
+def proc_exe(pid):
+    try:
+        return os.readlink(f"/proc/{pid}/exe")
+    except (OSError, TypeError):
+        return None
+
+
+def age(mtime):
+    """`14 min`, `3 h`, `2 d` - how long ago the window connected."""
+    seconds = max(0, int(time.time() - mtime))
+    for limit, div, unit in ((3600, 60, "min"), (86400, 3600, "h"), (None, 86400, "d")):
+        if limit is None or seconds < limit:
+            return f"{seconds // div} {unit}"
+
+
+def describe(cand, index=None):
+    bits = [f"from {cand['client']}" if cand["client"] else "from an unknown client"]
+    bits.append(f"connected {cand['age']} ago")
+    prefix = f"  {index}) " if index else "  "
+    return prefix + ", ".join(bits)
+
+
+def choose(targets):
+    """Ask which connected VS Code window should open the paths, if any should."""
+    if os.environ.get("CODE_OPEN") == "never":
+        return None
+    if not (sys.stdin.isatty() and sys.stderr.isatty()):
+        return None  # a script or a pipe gets the link, never a prompt
+    found = candidates()
+    if not found:
+        return None
+
+    what = ", ".join(str(p) for p, _ in targets)
+    if len(found) == 1:
+        print(f"code: one VS Code window is connected to {HOST}:", file=sys.stderr)
+        print(describe(found[0]), file=sys.stderr)
+        answer = prompt(f"Open {what} there? [Y/n] ")
+        return found[0] if answer in ("", "y", "yes") else None
+
+    print(f"code: {len(found)} VS Code windows are connected to {HOST}:", file=sys.stderr)
+    for i, cand in enumerate(found, 1):
+        print(describe(cand, i), file=sys.stderr)
+    answer = prompt(f"Open {what} in which? [1-{len(found)}, Enter = print a link] ")
+    if answer.isdigit() and 1 <= int(answer) <= len(found):
+        return found[int(answer) - 1]
+    return None
+
+
+def prompt(question):
+    try:
+        sys.stderr.write(question)
+        sys.stderr.flush()
+        return sys.stdin.readline().strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        print(file=sys.stderr)
+        return "n"
+
+
+def real_code(server=None):
     """The genuine VS Code CLI, if this machine has one."""
+    if server:
+        cand = Path(server) / "bin/remote-cli/code"
+        if cand.is_file():
+            return cand
     # Inside a VS Code terminal, PATH points at the remote-cli shim of the
     # server that owns the window; it is the only one that can reach it.
     for d in os.environ.get("PATH", "").split(os.pathsep):
@@ -56,27 +224,6 @@ def real_code():
     return servers[-1] if servers else None
 
 
-def ipc_alive():
-    """Whether $VSCODE_IPC_HOOK_CLI still leads to a VS Code window.
-
-    A tmux pane keeps the variable of the window it was started in long after
-    that window is gone, and the socket file itself lingers too, so only an
-    actual connection tells the two cases apart.
-    """
-    path = os.environ.get("VSCODE_IPC_HOOK_CLI")
-    if not path:
-        return False
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(0.2)
-    try:
-        sock.connect(path)
-        return True
-    except OSError:
-        return False
-    finally:
-        sock.close()
-
-
 def split_line_suffix(arg):
     """Split `file.py:42:7` into ("file.py", ":42:7")."""
     head, suffix = arg, ""
@@ -89,11 +236,22 @@ def split_line_suffix(arg):
 
 def link(url, text):
     """An OSC 8 hyperlink, where the terminal can be expected to render one."""
-    # tmux only learned OSC 8 in 3.4 and passes it through garbled before that,
-    # so inside tmux the bare URL is the safer output.
-    if not sys.stdout.isatty() or os.environ.get("TMUX"):
+    # tmux only learned OSC 8 in 3.4 and discards it before that, so inside an
+    # older tmux the bare URL is the more useful output.
+    if not sys.stdout.isatty() or tmux_before_3_4():
         return text
     return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
+def tmux_before_3_4():
+    if not os.environ.get("TMUX"):
+        return False
+    try:
+        out = subprocess.run(["tmux", "-V"], capture_output=True, text=True).stdout
+        major, minor = re.search(r"(\d+)\.(\d+)", out).groups()
+        return (int(major), int(minor)) < (3, 4)
+    except Exception:
+        return True
 
 
 def main(argv):
@@ -107,12 +265,24 @@ def main(argv):
         return 0
 
     paths = [a for a in argv if not a.startswith("-")] or ["."]
+    targets = []
     for arg in paths:
         target, suffix = split_line_suffix(arg)
         abs_path = Path(target).expanduser().resolve()
         if not abs_path.exists():
             print(f"code: {target}: no such file or directory", file=sys.stderr)
             return 1
+        targets.append((abs_path, suffix))
+
+    chosen = choose(targets)
+    cli = real_code(chosen["server"]) if chosen else None
+    if cli:
+        # The CLI has to come from the same server build as the socket, so
+        # prefer the one belonging to the window that was picked.
+        env = {**os.environ, "VSCODE_IPC_HOOK_CLI": chosen["path"]}
+        return subprocess.call([str(cli), *argv], env=env)
+
+    for abs_path, suffix in targets:
         url = f"vscode://vscode-remote/ssh-remote+{quote(HOST)}{quote(abs_path.as_posix())}{suffix}"
         print(link(url, url))
     return 0
