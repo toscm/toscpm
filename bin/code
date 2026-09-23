@@ -8,6 +8,7 @@ printed. Clicking it (Ctrl-click on Windows Terminal, Cmd-click in iTerm2) makes
 the local VS Code open that path over Remote-SSH.
 """
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -25,7 +26,8 @@ A trailing :LINE or :LINE:COL on a file path is kept, so `code file.py:42` opens
 file.py at line 42.
 
 Inside a VS Code terminal the real `code` CLI from ~/.vscode-server is used
-instead, so all of its options keep working.
+instead, so all of its options keep working. A tmux pane that outlived the
+window it was started in counts as a plain SSH session and gets the link.
 
 The link names this host as `%s`, which has to match the Host entry in the ssh
 config of the local machine. Set CODE_SSH_HOST to use a different name.
@@ -54,6 +56,27 @@ def real_code():
     return servers[-1] if servers else None
 
 
+def ipc_alive():
+    """Whether $VSCODE_IPC_HOOK_CLI still leads to a VS Code window.
+
+    A tmux pane keeps the variable of the window it was started in long after
+    that window is gone, and the socket file itself lingers too, so only an
+    actual connection tells the two cases apart.
+    """
+    path = os.environ.get("VSCODE_IPC_HOOK_CLI")
+    if not path:
+        return False
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(0.2)
+    try:
+        sock.connect(path)
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
 def split_line_suffix(arg):
     """Split `file.py:42:7` into ("file.py", ":42:7")."""
     head, suffix = arg, ""
@@ -75,7 +98,7 @@ def link(url, text):
 
 def main(argv):
     code = real_code()
-    if code and (os.environ.get("VSCODE_IPC_HOOK_CLI") or not os.environ.get("SSH_CONNECTION")):
+    if code and (ipc_alive() or not os.environ.get("SSH_CONNECTION")):
         # A VS Code terminal, or a desktop machine where `code` opens a window.
         return subprocess.call([str(code), *argv])
 
