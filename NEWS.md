@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.41.1
+
+- `code`: a tmux pane that outlived the VS Code window it was started in now prints the link instead of failing with `Unable to connect to VS Code server`.
+  Such a pane keeps the stale `VSCODE_IPC_HOOK_CLI` of the old window, and the socket file it names often lingers as well, so the variable is no longer trusted on its own: the shim connects to the socket first and treats a refused connection like a plain SSH session.
+
 ## 1.41.0
 
 - New bin script `code` (Linux only): in a plain SSH session it prints a `vscode://vscode-remote/ssh-remote+<host>/<path>` link instead of failing.
