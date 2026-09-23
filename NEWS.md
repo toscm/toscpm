@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.41.0
+
+- New bin script `code` (Linux only): in a plain SSH session it prints a `vscode://vscode-remote/ssh-remote+<host>/<path>` link instead of failing.
+  Ctrl-clicking it in Windows Terminal, or Cmd-clicking it in iTerm2, opens that path in the local VS Code over Remote-SSH; Terminal.app and tmux 3.0 cannot linkify it, so there the URL has to be copied by hand.
+  Inside a VS Code terminal it passes every argument on to the real `code` CLI from `~/.vscode-server`, so nothing changes there.
+  The host name in the link defaults to the short hostname and can be overridden with `CODE_SSH_HOST` when the local ssh config uses a different alias.
+
 ## 1.40.0
 
 - "Copy as Linux path": Alt+C in Total Commander and a new Explorer context menu entry copy paths with forward slashes, one per line.

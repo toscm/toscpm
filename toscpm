@@ -896,6 +896,7 @@ def link_dotfiles(cur_os):
 # (command_name, repo_source_relative, os_filter_or_None)
 # Executable helpers symlinked into ~/.local/bin so they land on PATH.
 BIN_SCRIPTS = [
+    ("code",      "bin/code",      "linux"),
     ("deepsleep", "bin/deepsleep", "macos"),
     ("ptree",     "bin/ptree",     "linux"),
 ]

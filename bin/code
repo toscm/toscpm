@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""code - open a path on this machine in the VS Code running on your local PC.
+
+Inside a VS Code terminal this is a pass-through to the real `code` CLI from
+~/.vscode-server. In a plain SSH session there is no channel back to the local
+machine, so instead a `vscode://vscode-remote/ssh-remote+<host>/<path>` link is
+printed. Clicking it (Ctrl-click on Windows Terminal, Cmd-click in iTerm2) makes
+the local VS Code open that path over Remote-SSH.
+"""
+import os
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import quote
+
+HELP = """\
+Usage: code [PATH ...]
+
+Print a vscode:// link that opens PATH (default: the current directory) in the
+VS Code on your local machine, connected to this host via Remote-SSH. Ctrl-click
+the link in Windows Terminal, or Cmd-click it in iTerm2, to open it. Terminal.app
+and tmux 3.0 cannot make it clickable, so there copy the URL by hand.
+
+A trailing :LINE or :LINE:COL on a file path is kept, so `code file.py:42` opens
+file.py at line 42.
+
+Inside a VS Code terminal the real `code` CLI from ~/.vscode-server is used
+instead, so all of its options keep working.
+
+The link names this host as `%s`, which has to match the Host entry in the ssh
+config of the local machine. Set CODE_SSH_HOST to use a different name.
+"""
+
+# The alias the *local* machine uses for this host in its ~/.ssh/config. The
+# short hostname is right whenever the ssh config entry is named after the
+# machine, which is the usual case.
+HOST = os.environ.get("CODE_SSH_HOST") or os.uname().nodename.split(".")[0]
+
+
+def real_code():
+    """The genuine VS Code CLI, if this machine has one."""
+    # Inside a VS Code terminal, PATH points at the remote-cli shim of the
+    # server that owns the window; it is the only one that can reach it.
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        cand = Path(d) / "code"
+        if cand.is_file() and os.access(cand, os.X_OK) and cand.resolve() != Path(__file__).resolve():
+            return cand
+    # Fall back to the newest installed server, for a VS Code terminal whose
+    # PATH was overwritten by a shell rc file.
+    servers = sorted(
+        Path.home().glob(".vscode-server/cli/servers/*/server/bin/remote-cli/code"),
+        key=lambda p: p.stat().st_mtime,
+    )
+    return servers[-1] if servers else None
+
+
+def split_line_suffix(arg):
+    """Split `file.py:42:7` into ("file.py", ":42:7")."""
+    head, suffix = arg, ""
+    while True:
+        base, sep, tail = head.rpartition(":")
+        if not sep or not tail.isdigit() or suffix.count(":") == 2:
+            return head, suffix
+        head, suffix = base, sep + tail + suffix
+
+
+def link(url, text):
+    """An OSC 8 hyperlink, where the terminal can be expected to render one."""
+    # tmux only learned OSC 8 in 3.4 and passes it through garbled before that,
+    # so inside tmux the bare URL is the safer output.
+    if not sys.stdout.isatty() or os.environ.get("TMUX"):
+        return text
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
+def main(argv):
+    code = real_code()
+    if code and (os.environ.get("VSCODE_IPC_HOOK_CLI") or not os.environ.get("SSH_CONNECTION")):
+        # A VS Code terminal, or a desktop machine where `code` opens a window.
+        return subprocess.call([str(code), *argv])
+
+    if argv and argv[0] in ("-h", "--help"):
+        print(HELP % HOST, end="")
+        return 0
+
+    paths = [a for a in argv if not a.startswith("-")] or ["."]
+    for arg in paths:
+        target, suffix = split_line_suffix(arg)
+        abs_path = Path(target).expanduser().resolve()
+        if not abs_path.exists():
+            print(f"code: {target}: no such file or directory", file=sys.stderr)
+            return 1
+        url = f"vscode://vscode-remote/ssh-remote+{quote(HOST)}{quote(abs_path.as_posix())}{suffix}"
+        print(link(url, url))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
