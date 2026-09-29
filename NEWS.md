@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.45.1
+
+- The `totalcmd-ini` git filter also pins `ShowHiddenSystem` and `IgnoreListFileEnabled` in `wincmd-shared.ini` to their committed values.
+  Total Commander saves both whenever you toggle hidden/system files or the ignore list, which left the repo dirty and made `toscpm check` report a changed dotfile.
+  To change either default, edit the filter in `GIT_FILTERS`, not the ini.
+
 ## 1.45.0
 
 - New command `toscpm update`: pulls the repo, then runs `toscpm link` and `toscpm check` with the pulled script.

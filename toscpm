@@ -1201,8 +1201,13 @@ def check_remotes():
 GIT_FILTERS = [
     # Total Commander bumps its firstmnu start counter on every launch and
     # writes it into the shared [Configuration] section; strip it so the
-    # repo does not go dirty each time TC starts.
-    ("totalcmd-ini", "sed -e '/^firstmnu=/d'"),
+    # repo does not go dirty each time TC starts. The hidden/system files
+    # toggle (Ctrl+H) and the ignore list toggle are also saved there on
+    # every switch; pin them to the committed defaults. To change a default,
+    # edit it here, not in the ini.
+    ("totalcmd-ini", "sed -e '/^firstmnu=/d'"
+                     " -e 's/^ShowHiddenSystem=.*/ShowHiddenSystem=2/'"
+                     " -e 's/^IgnoreListFileEnabled=.*/IgnoreListFileEnabled=0/'"),
 ]
 
 
