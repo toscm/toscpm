@@ -24,10 +24,15 @@ toscpm install --all    # (re)install every tracked tool
 toscpm install -n       # dry-run: print the no-admin commands (with live latest versions)
 toscpm install -n --admin   # print the admin commands (apt/brew/winget) instead
 toscpm link             # (re)create dotfile symlinks + self-install
+toscpm update           # pull the latest toscpm (fast-forward only), then link + check
 ```
 
 `toscpm check` reports tools (installed?), dotfiles (symlinked?), self
-(`toscpm` on PATH?), and repo (clean?).
+(`toscpm` on PATH?), and repo (clean? pushed? behind upstream?).
+
+`toscpm update` brings a machine up to date: it pulls the repo, links the dotfiles and runs `check`, which lists any tools that are now missing.
+Install those with `toscpm install` when convenient.
+It only fast-forwards: with uncommitted changes, unpushed commits or a diverged history it stops and says what to do, since merging two machines' releases can make `VERSION`, `NEWS.md` and the tags collide.
 
 `toscpm install` installs without admin rights — ideal for ephemeral
 containers where `~` is mounted but system installs don't persist. On

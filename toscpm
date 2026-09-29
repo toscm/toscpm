@@ -1091,22 +1091,60 @@ def link_self(cur_os):
 # Repo status
 # ---------------------------------------------------------------------------
 
-def check_repo():
+def git(*args, timeout=None):
+    return subprocess.run(["git", *args], cwd=REPO_DIR, capture_output=True,
+                          text=True, timeout=timeout)
+
+
+def repo_state():
+    """Fetch the upstream branch and compare the clone with it.
+
+    Returns (dirty, ahead, behind, error): the number of uncommitted
+    changes, of local commits missing upstream and of upstream commits
+    missing locally, and an error message when git or the fetch failed
+    (then ahead and behind are None).
+    """
     try:
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=REPO_DIR, capture_output=True, text=True,
-        )
+        status = git("status", "--porcelain")
     except FileNotFoundError:
+        return 0, None, None, "git not found"
+    dirty = len([l for l in status.stdout.splitlines() if l])
+    try:
+        fetch = git("fetch", "--quiet", timeout=30)
+    except subprocess.TimeoutExpired:
+        return dirty, None, None, "git fetch timed out"
+    if fetch.returncode != 0:
+        err = fetch.stderr.strip().splitlines()
+        return dirty, None, None, f"git fetch failed: {err[-1] if err else fetch.returncode}"
+    counts = git("rev-list", "--left-right", "--count", "HEAD...@{u}")
+    if counts.returncode != 0:
+        return dirty, None, None, "no upstream branch"
+    ahead, behind = (int(n) for n in counts.stdout.split())
+    return dirty, ahead, behind, None
+
+
+def check_repo():
+    dirty, ahead, behind, error = repo_state()
+    problems = []
+    if dirty:
+        problems.append(f"{dirty} uncommitted change(s)")
+    if ahead:
+        problems.append(f"{ahead} unpushed commit(s)")
+    if behind:
+        problems.append(f"{behind} commit(s) behind upstream")
+    if error == "git not found":
         print(f"{FAIL} Repo       git not found")
         return True
-
-    lines = [l for l in result.stdout.strip().splitlines() if l]
-    if not lines:
-        print(f"{OK} Repo       clean")
-        return True
-    print(f"{FAIL} Repo       {len(lines)} uncommitted change(s) in {REPO_DIR}")
-    return False
+    if problems:
+        print(f"{FAIL} Repo       {', '.join(problems)} in {REPO_DIR}")
+        if behind and not ahead and not dirty:
+            print(f"           run: toscpm update")
+    else:
+        print(f"{OK} Repo       clean" + ("" if error else ", up to date"))
+    if error:
+        # Offline or no upstream: the local state is still reported above.
+        print(f"{SKIP} Repo       could not compare with upstream ({error})")
+    return not problems
 
 
 # ---------------------------------------------------------------------------
@@ -1232,6 +1270,53 @@ def cmd_check(cur_os):
     return 0
 
 
+def cmd_update(cur_os):
+    """Fast-forward the clone to upstream, then link and check.
+
+    Stops on anything but a clean fast-forward: uncommitted changes or
+    unpushed commits would need a merge or rebase, and a rebase can make
+    VERSION, NEWS.md and the tags collide, which needs a person to renumber.
+    link and check run as new processes of the pulled script, since this
+    process still holds the old code.
+    """
+    dirty, ahead, behind, error = repo_state()
+    repo = str(REPO_DIR)
+    if error:
+        print(f"{FAIL} Cannot update: {error}")
+        return 1
+    if dirty:
+        print(f"{FAIL} {dirty} uncommitted change(s) in {repo}.")
+        print(f"  Commit and push them (or stash them), then rerun: toscpm update")
+        return 1
+    if ahead and behind:
+        print(f"{FAIL} {repo} and upstream have diverged: "
+              f"{ahead} local and {behind} upstream commit(s).")
+        print(f"  Rebase by hand (git -C {repo} pull --rebase), renumber colliding")
+        print(f"  versions in VERSION, NEWS.md and the tags, push, then rerun: toscpm update")
+        return 1
+    if ahead:
+        print(f"{FAIL} {ahead} local commit(s) not pushed yet.")
+        print(f"  Push them first (git -C {repo} push --follow-tags), then rerun: toscpm update")
+        return 1
+    if behind:
+        old = VERSION
+        merge = git("merge", "--ff-only", "--quiet", "@{u}")
+        if merge.returncode != 0:
+            print(f"{FAIL} git merge --ff-only failed: {merge.stderr.strip()}")
+            return 1
+        new = (REPO_DIR / "VERSION").read_text().strip()
+        print(f"{OK} Updated toscpm {old} -> {new} ({behind} commit(s))")
+    else:
+        print(f"{OK} toscpm {VERSION} is up to date")
+
+    script = str(REPO_DIR / "toscpm")
+    print("\nLink:", flush=True)
+    linked = subprocess.run([sys.executable, script, "link"]).returncode
+    print("\nCheck:", flush=True)
+    subprocess.run([sys.executable, script, "check"])
+    return linked
+
+
 def cmd_link(cur_os):
     try:
         link_dotfiles(cur_os)
@@ -1267,6 +1352,8 @@ def main():
 
     sub.add_parser("link", help="symlink dotfiles + install self into ~/.local/bin")
 
+    sub.add_parser("update", help="pull the latest toscpm (fast-forward only), then link and check")
+
     args = parser.parse_args()
     cur_os = get_os()
     global ARCH
@@ -1276,6 +1363,8 @@ def main():
         return install(args.tools, args.all, args.dry_run, args.admin, cur_os)
     if args.cmd == "link":
         return cmd_link(cur_os)
+    if args.cmd == "update":
+        return cmd_update(cur_os)
     return cmd_check(cur_os)
 
 

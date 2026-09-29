@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.45.0
+
+- New command `toscpm update`: pulls the repo, then runs `toscpm link` and `toscpm check` with the pulled script.
+  It installs no tools; `check` lists the missing ones, and `toscpm install` installs them.
+  It only fast-forwards and stops with instructions on uncommitted changes, unpushed commits or a diverged history, since a rebase can make `VERSION`, `NEWS.md` and the tags of two machines collide.
+
+- `toscpm check` fetches the repo and reports unpushed commits and commits behind upstream, suggesting `toscpm update` when that is all there is to do.
+  Offline, it reports the local state and notes that it could not compare with upstream.
+
 ## 1.44.0
 
 - New dotfile `bat/config`: `--theme-light="GitHub"` and `--theme-dark="Monokai Extended"`.
