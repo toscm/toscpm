@@ -1,0 +1,5 @@
+# bat asks the terminal for its background colour at startup (the default
+# --theme=auto, bat 0.25 and newer) and picks one of these two themes.
+# GitHub is also what delta uses on a light background.
+--theme-light="GitHub"
+--theme-dark="Monokai Extended"

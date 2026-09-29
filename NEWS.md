@@ -6,6 +6,17 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.44.0
+
+- New dotfile `bat/config`: `--theme-light="GitHub"` and `--theme-dark="Monokai Extended"`.
+  bat 0.25 and newer ask the terminal for its background colour at startup and pick one of the two, so bat follows the terminal between light and dark.
+
+- `bat` no longer counts as installed when only Ubuntu's `batcat` is present.
+  Ubuntu 22.04 ships batcat 0.12, which predates that detection and always uses a dark theme; `toscpm install bat` now installs the current release instead.
+
+- `nvim`: the colorscheme follows the terminal background, `github_light_default` on light and `github_dark_default` on dark.
+  Neovim ignores the terminal's answer once a colorscheme has set 'background', so the config reads the answer itself; `:ThemeSync` asks again after a toggle.
+
 ## 1.43.0
 
 - `gitconfig`: `delta.hyperlinks = false`.
