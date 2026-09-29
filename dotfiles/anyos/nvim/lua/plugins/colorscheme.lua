@@ -8,8 +8,14 @@
 -- Neovim asks the terminal for its background colour (OSC 11) at startup,
 -- but ignores the answer once a colorscheme has set 'background', which the
 -- dark scheme does before the answer arrives. So the answer is read here and
--- the scheme switched directly. :ThemeSync asks again, e.g. after toggling
--- the terminal between light and dark.
+-- the scheme switched directly. It asks again whenever nvim regains focus,
+-- so a light/dark toggle of the terminal is picked up on return, and
+-- :ThemeSync asks on demand.
+--
+-- Under tmux the answer comes from tmux's copy of the terminal colours, which
+-- tmux.conf refreshes on the same focus-in, so the second ask, half a second
+-- later, is the one that sees a fresh toggle; the first covers switching
+-- between panes, where the copy is already current.
 local function on_answer(args)
   local r, g, b = args.data.sequence:match("^\27%]11;rgb:(%x+)/(%x+)/(%x+)")
   if not r then
@@ -33,10 +39,19 @@ return {
     priority = 1000,
     opts = {},
     init = function()
-      vim.api.nvim_create_autocmd("TermResponse", { callback = on_answer })
-      vim.api.nvim_create_user_command("ThemeSync", function()
+      local function ask()
         io.stdout:write("\27]11;?\7")
-      end, { desc = "Match the colorscheme to the terminal background" })
+      end
+      vim.api.nvim_create_autocmd("TermResponse", { callback = on_answer })
+      vim.api.nvim_create_autocmd("FocusGained", {
+        callback = function()
+          ask()
+          vim.defer_fn(ask, 500)
+        end,
+      })
+      vim.api.nvim_create_user_command("ThemeSync", ask, {
+        desc = "Match the colorscheme to the terminal background",
+      })
     end,
   },
 

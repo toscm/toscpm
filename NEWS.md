@@ -6,6 +6,22 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.46.0
+
+- `tmux.conf`: tmux and everything running in it now follow Windows Terminal between light and dark.
+  Apps ask tmux for the background colour (OSC 11), and tmux answers from a copy it reads from the terminal on attach and refreshes only when the terminal reports a theme change via mode 2031.
+  Windows Terminal never sends that report, so after a toggle bat, delta and nvim kept seeing the old background until the next attach.
+  A `client-focus-in` hook (with `focus-events on`) now asks the terminal for its colours again whenever it regains focus; tmux takes the reply, updates its copy and notifies panes that subscribed to mode 2031.
+  The query is written to the client tty directly, since making tmux re-query via SIGWINCH redraws the whole screen and flickers on every focus change.
+  An already attached client only starts sending focus events after it reattaches.
+
+- `tmux.conf`: the status bar is the terminal's default colours reversed (`fg=default,bg=default,reverse`) instead of green, so the terminal recolours it the moment the scheme flips.
+  tmux 3.7c exposes no format for the terminal background, so a status style cannot pick colours per theme itself.
+  MOVE MODE now restores this style from `@status_style` instead of unsetting it, which reverted it to tmux's default green.
+
+- `nvim`: the colorscheme also asks for the terminal background on `FocusGained`, now and again after 500 ms, so a toggle is picked up without `:ThemeSync`.
+  The second ask covers the tmux case, where the refreshed colours arrive just after the focus event.
+
 ## 1.45.1
 
 - The `totalcmd-ini` git filter also pins `ShowHiddenSystem` and `IgnoreListFileEnabled` in `wincmd-shared.ini` to their committed values.
