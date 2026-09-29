@@ -15,7 +15,8 @@
 	side-by-side = false
 	wrap-max-lines = 0
 	line-numbers = true
-	hyperlinks = true
+	# less < 566 (e.g. Ubuntu 22.04) prints OSC 8 links as raw "8;;file://..." text.
+	hyperlinks = false
 	hunk-header-style = omit
 	file-style = bold
 	file-decoration-style = none

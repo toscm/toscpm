@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.43.0
+
+- `gitconfig`: `delta.hyperlinks = false`.
+  delta wraps every line number in an OSC 8 link, and `less` passes those through only from version 566 on; Ubuntu 22.04 ships 551, which shows them as raw `8;;file:///...` text in every `git diff`.
+
 ## 1.42.0
 
 - New tool recipe for `tmux`: built from the latest release tarball into `~/.local` instead of installed with apt.
