@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.47.0
+
+- `nvim`: Shift+arrows start a Visual selection (`keymodel=startsel,stopsel`), and `y` or Ctrl+C on a Visual selection copies it to the system clipboard.
+  Other yanks and deletes no longer go to the clipboard (`clipboard=""`, where LazyVim set `unnamedplus` outside ssh).
+  Over ssh or inside tmux the clipboard is reached via OSC 52, which tmux forwards to Windows Terminal; `"+p` returns the last copy, since Windows Terminal does not answer OSC 52 read requests.
+
 ## 1.46.0
 
 - `tmux.conf`: tmux and everything running in it now follow Windows Terminal between light and dark.

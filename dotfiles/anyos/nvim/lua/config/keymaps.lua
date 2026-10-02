@@ -10,3 +10,8 @@ local function palette()
 end
 vim.keymap.set({ "n", "v" }, "<F1>", palette, { desc = "Command Palette" })
 vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
+
+-- y and Ctrl+C on a Visual selection (from the mouse or Shift+arrows) copy it
+-- to the system clipboard. Without a selection Ctrl+C keeps its usual meaning.
+vim.keymap.set("x", "y", '"+y', { desc = "Copy selection to clipboard" })
+vim.keymap.set("x", "<C-c>", '"+y', { desc = "Copy selection to clipboard" })

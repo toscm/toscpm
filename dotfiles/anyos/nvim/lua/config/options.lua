@@ -35,3 +35,39 @@ vim.g.loaded_node_provider = 0
 vim.g.loaded_perl_provider = 0
 vim.g.loaded_python3_provider = 0
 vim.g.loaded_ruby_provider = 0
+
+-- Shift+arrows start Visual mode (not Select mode, where typing replaces the
+-- selection), so a following y yanks it; an unshifted arrow ends it.
+vim.opt.keymodel = { "startsel", "stopsel" }
+vim.opt.selectmode = ""
+
+-- Only explicit copies reach the system clipboard: "+y, or y / Ctrl+C on a
+-- Visual selection (see keymaps.lua). LazyVim otherwise syncs every yank and
+-- delete with it outside ssh.
+vim.opt.clipboard = ""
+
+-- Over ssh or inside tmux the clipboard is the outer terminal's, reached via
+-- OSC 52 (tmux forwards it with set-clipboard on). Windows Terminal ignores
+-- OSC 52 read requests, so "+p returns the last copy instead of waiting for a
+-- reply; pasting from Windows works with the terminal's own Ctrl+V.
+if vim.env.SSH_CONNECTION or vim.env.TMUX then
+  local osc52 = require("vim.ui.clipboard.osc52")
+  local last = {}
+  local function copy(reg)
+    local send = osc52.copy(reg)
+    return function(lines, regtype)
+      last[reg] = { lines, regtype }
+      send(lines, regtype)
+    end
+  end
+  local function paste(reg)
+    return function()
+      return last[reg] or {}
+    end
+  end
+  vim.g.clipboard = {
+    name = "osc52-copy",
+    copy = { ["+"] = copy("+"), ["*"] = copy("*") },
+    paste = { ["+"] = paste("+"), ["*"] = paste("*") },
+  }
+end
