@@ -14,10 +14,14 @@
 	navigate = false
 	side-by-side = false
 	wrap-max-lines = 0
-	line-numbers = true
+	# No line-number gutter: in the unified view delta leaves long lines to the
+	# terminal, which wraps them to column 0, under the gutter. Without it they
+	# wrap like ordinary text, and each hunk is headed by its path:line instead.
+	line-numbers = false
 	# less < 566 (e.g. Ubuntu 22.04) prints OSC 8 links as raw "8;;file://..." text.
 	hyperlinks = false
-	hunk-header-style = omit
+	hunk-header-style = file line-number omit-code-fragment
+	hunk-header-decoration-style = blue ul
 	file-style = bold
 	file-decoration-style = none
 [push]

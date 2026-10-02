@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.48.0
+
+- `gitconfig`: delta shows no line-number gutter and heads each hunk with its `path:line` instead.
+  In the unified view delta leaves long lines to the terminal, which wrapped them back to column 0, under the gutter; without it they wrap like ordinary text.
+
 ## 1.47.0
 
 - `nvim`: Shift+arrows start a Visual selection (`keymodel=startsel,stopsel`), and `y` or Ctrl+C on a Visual selection copies it to the system clipboard.
