@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.49.0
+
+- Total Commander: Ctrl+Shift+H toggles system files (`cm_SwitchSys`) and Alt+D edits the current path (`cm_EditPath`).
+
+- Total Commander: the `totalcmd-ini` git filter also strips the `test=` value, which TC rewrites on its own, so it no longer dirties the repo.
+  Run `toscpm link` to update the filter in an existing clone.
+
+- Removed the stray `Untitled` file committed in 1.46.0.
+
 ## 1.48.0
 
 - `gitconfig`: delta shows no line-number gutter and heads each hunk with its `path:line` instead.
