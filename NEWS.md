@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.50.0
+
+- `nvim`: no indent guides or scope highlighting (Snacks.indent) in Markdown files, where indentation is list nesting rather than code structure.
+
 ## 1.49.0
 
 - Total Commander: Ctrl+Shift+H toggles system files (`cm_SwitchSys`) and Alt+D edits the current path (`cm_EditPath`).
