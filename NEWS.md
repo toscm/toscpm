@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.50.1
+
+- `bash_aliases`: `bat` is aliased to `batcat` only when no `bat` is on the PATH, as in `zshrc`.
+  The alias made bash run Ubuntu's bat 0.12, which rejects the `--theme-light` option in the bat config, instead of the bat 0.26 toscpm installs into `~/.local/bin`.
+
 ## 1.50.0
 
 - `nvim`: no indent guides or scope highlighting (Snacks.indent) in Markdown files, where indentation is list nesting rather than code structure.
