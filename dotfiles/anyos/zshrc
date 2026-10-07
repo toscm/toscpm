@@ -116,3 +116,11 @@ alias gp='git push'
 alias gs='git status'
 alias gd='git diff'
 alias v='nvim'
+# tmux-peer [session]: attach to a running session (default: the first one)
+# from another terminal with its own current window. It joins the session's
+# group, so both share the windows, and the extra session goes away on detach.
+tmux-peer() {
+    local target=${1:-$(tmux ls -F '#{session_name}' -f '#{?session_grouped,#{==:#{session_name},#{session_group}},1}' 2>/dev/null | head -1)}
+    [ -n "$target" ] || { echo "tmux-peer: no tmux session running" >&2; return 1; }
+    tmux new-session -t "$target" \; set-option destroy-unattached on
+}

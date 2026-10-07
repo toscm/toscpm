@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.51.0
+
+- `bash_aliases`, `zshrc`: new `tmux-peer [session]` attaches a second terminal to a running tmux session (default: the first one) with its own current window.
+  It creates a grouped session that shares the windows and removes itself on detach.
+
+- `tmux.conf`: `aggressive-resize` is on, so a window is sized only by the clients currently showing it.
+  A second terminal looking at another window no longer constrains its size.
+
 ## 1.50.1
 
 - `bash_aliases`: `bat` is aliased to `batcat` only when no `bat` is on the PATH, as in `zshrc`.

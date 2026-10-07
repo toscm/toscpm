@@ -24,3 +24,11 @@ alias gd='git diff'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
 alias v='nvim'
+# tmux-peer [session]: attach to a running session (default: the first one)
+# from another terminal with its own current window. It joins the session's
+# group, so both share the windows, and the extra session goes away on detach.
+tmux-peer() {
+    local target=${1:-$(tmux ls -F '#{session_name}' -f '#{?session_grouped,#{==:#{session_name},#{session_group}},1}' 2>/dev/null | head -1)}
+    [ -n "$target" ] || { echo "tmux-peer: no tmux session running" >&2; return 1; }
+    tmux new-session -t "$target" \; set-option destroy-unattached on
+}
