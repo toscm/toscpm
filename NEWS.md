@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.52.1
+
+- `wincmd-shared.ini`: the Total Commander editor (F4) is `code.exe %1`, found on the PATH (add `C:\Program Files\Microsoft VS Code`).
+  The quoted `"%ProgramFiles%\Microsoft VS Code\Code.exe" "%1"` began and ended with a quote, so Windows' ini reader stripped the outer pair and F4 failed with "File not found!".
+
 ## 1.52.0
 
 - `nvim`: Alt+Up/Down move lines like Alt+j/k, in Normal, Insert and Visual mode.
