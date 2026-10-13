@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.52.0
+
+- `nvim`: Alt+Up/Down move lines like Alt+j/k, in Normal, Insert and Visual mode.
+
+- `nvim`: in the file explorer, Right opens a directory or file and Left closes the directory, like l and h.
+
+- `nvim`: in Visual mode an unshifted arrow extends the selection like hjkl instead of ending it (`keymodel=startsel`, dropping `stopsel`).
+  Up/Down already did, through LazyVim's mappings, while Left/Right ended it; Esc ends the selection.
+
 ## 1.51.0
 
 - `bash_aliases`, `zshrc`: new `tmux-peer [session]` attaches a second terminal to a running tmux session (default: the first one) with its own current window.

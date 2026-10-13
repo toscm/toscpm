@@ -15,3 +15,8 @@ vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
 -- to the system clipboard. Without a selection Ctrl+C keeps its usual meaning.
 vim.keymap.set("x", "y", '"+y', { desc = "Copy selection to clipboard" })
 vim.keymap.set("x", "<C-c>", '"+y', { desc = "Copy selection to clipboard" })
+
+-- Alt+Up/Down move lines like LazyVim's Alt+j/k, in Normal, Insert and Visual
+-- mode. remap so they follow whatever Alt+j/k are bound to.
+vim.keymap.set({ "n", "i", "v" }, "<A-Down>", "<A-j>", { remap = true, desc = "Move Down" })
+vim.keymap.set({ "n", "i", "v" }, "<A-Up>", "<A-k>", { remap = true, desc = "Move Up" })

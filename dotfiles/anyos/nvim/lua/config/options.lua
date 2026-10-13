@@ -37,8 +37,9 @@ vim.g.loaded_python3_provider = 0
 vim.g.loaded_ruby_provider = 0
 
 -- Shift+arrows start Visual mode (not Select mode, where typing replaces the
--- selection), so a following y yanks it; an unshifted arrow ends it.
-vim.opt.keymodel = { "startsel", "stopsel" }
+-- selection), so a following y yanks it. Without "stopsel" an unshifted arrow
+-- extends the selection like hjkl instead of ending it; Esc ends it.
+vim.opt.keymodel = { "startsel" }
 vim.opt.selectmode = ""
 
 -- Only explicit copies reach the system clipboard: "+y, or y / Ctrl+C on a
