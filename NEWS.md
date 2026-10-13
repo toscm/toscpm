@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.52.2
+
+- `nvim`: github-theme compiles its themes into `stdpath("data")` instead of `stdpath("cache")`.
+  On Windows the cache lives under `%TEMP%`, whose cleanup deleted the compiled themes but kept the hash file, so the plugin skipped recompiling and every start failed with "attempt to call local 'compiled_theme' (a nil value)".
+
 ## 1.52.1
 
 - `wincmd-shared.ini`: the Total Commander editor (F4) is `code.exe %1`, found on the PATH (add `C:\Program Files\Microsoft VS Code`).

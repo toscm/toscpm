@@ -37,7 +37,13 @@ return {
     name = "github-theme",
     lazy = false,
     priority = 1000,
-    opts = {},
+    -- The compiled themes default to stdpath("cache"), which on Windows is
+    -- under %TEMP% and gets cleaned. The cleanup can leave the hash file
+    -- behind, so the plugin skips recompiling and :colorscheme fails with
+    -- "attempt to call local 'compiled_theme' (a nil value)".
+    opts = {
+      options = { compile_path = vim.fn.stdpath("data") .. "/github-theme" },
+    },
     init = function()
       local function ask()
         io.stdout:write("\27]11;?\7")
