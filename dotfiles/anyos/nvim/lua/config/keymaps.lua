@@ -106,6 +106,19 @@ end)
 vim.keymap.set("x", "<BS>", '"_d', { desc = "Delete Selection" })
 vim.keymap.set("x", "<Del>", '"_d', { desc = "Delete Selection" })
 
+-- Esc in Normal mode also dismisses all notifications (see
+-- lua/plugins/notifier.lua), on top of what LazyVim's Esc does: clear the
+-- search highlight and stop the active snippet. The hiding is scheduled
+-- because an expr mapping may not close windows (textlock).
+vim.keymap.set("n", "<esc>", function()
+  vim.cmd("noh")
+  LazyVim.cmp.actions.snippet_stop()
+  vim.schedule(function()
+    Snacks.notifier.hide()
+  end)
+  return "<esc>"
+end, { expr = true, desc = "Escape, Clear hlsearch and Notifications" })
+
 -- Ctrl+S saves without leaving the current mode; LazyVim's version appends
 -- <esc>, which drops back to Normal mode.
 vim.keymap.set({ "i", "x", "n", "s" }, "<C-s>", "<cmd>w<cr>", { desc = "Save File" })

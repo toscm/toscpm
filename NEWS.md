@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.55.0
+
+- `nvim`: errors no longer stay until dismissed: they disappear after 15 seconds, other notifications still after 5.
+  Esc in Normal mode dismisses all notifications at once (besides clearing the search highlight, as before), and `<leader>n` still shows the history.
+
 ## 1.54.0
 
 - `nvim`: Backspace, Delete, Enter and Tab edit in Normal mode as in Insert mode, without leaving Normal mode.

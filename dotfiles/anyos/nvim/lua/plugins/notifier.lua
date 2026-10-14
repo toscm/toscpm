@@ -28,9 +28,14 @@
 -- and <leader>n shows the full text. 'winblend' goes to 0 because the
 -- default 5 blends the text into whatever is behind the box.
 --
--- Errors stay until dismissed with <leader>un; everything else disappears
--- after five seconds, except while a command line is open (the `keep`
--- default that is kept here), so nothing vanishes mid-keystroke.
+-- Notifications disappear after five seconds, errors after fifteen, and
+-- none while a command line is open (the `keep` default that is kept here),
+-- so nothing vanishes mid-keystroke. Esc in Normal mode dismisses them all
+-- at once (keymaps.lua), as does <leader>un; <leader>n shows the history.
+-- Snacks has no per-level timeout, so `keep` holds errors for the extra ten
+-- seconds; `shown` is the wall-clock time in seconds the box first appeared.
+local error_timeout = 15
+
 return {
   {
     "folke/snacks.nvim",
@@ -39,7 +44,10 @@ return {
         timeout = 5000,
         height = { min = 1, max = 0.75 },
         keep = function(notif)
-          return notif.level == "error" or vim.fn.getcmdpos() > 0
+          if vim.fn.getcmdpos() > 0 then
+            return true
+          end
+          return notif.level == "error" and notif.shown ~= nil and notif.shown + error_timeout > os.time()
         end,
         config = function(opts)
           local function fit()
