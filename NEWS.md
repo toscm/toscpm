@@ -6,6 +6,19 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.54.0
+
+- `nvim`: Backspace, Delete, Enter and Tab edit in Normal mode as in Insert mode, without leaving Normal mode.
+  Backspace and Delete join lines at the start or end of one, Enter splits the line and Tab indents at the cursor.
+  The cursor can rest one column past the end of a line (`virtualedit=onemore`), where Enter opens a new line and Delete joins the next.
+  In help, quickfix, terminal and plugin buffers the keys keep their usual meaning.
+
+- `nvim`: more VS Code bindings.
+  Ctrl+Backspace/Ctrl+Delete delete a word, Ctrl+/ toggles a comment (the terminal moves to Ctrl+`), Ctrl+P finds files, Ctrl+Shift+P opens the command palette and Ctrl+Shift+F greps.
+  F2 renames, F12 and Shift+F12 go to the definition and references, Ctrl+. shows code actions.
+  Shift+Alt+Up/Down duplicate lines, Ctrl+Shift+K deletes them, Ctrl+Enter/Ctrl+Shift+Enter open a line below/above, Tab/Shift+Tab indent and unindent.
+  Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo and Ctrl+A selects everything, replacing Vim's suspend, scroll-a-line and increment.
+
 ## 1.53.0
 
 - `nvim`: multiple cursors (multicursor.nvim) with VS Code's bindings.

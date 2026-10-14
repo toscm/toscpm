@@ -80,3 +80,8 @@ end
 -- the end of a line still stay on it. Word motions (b, w, Ctrl+Left/Right)
 -- cross lines anyway.
 vim.opt.whichwrap = "b,s,<,>,[,],h,l"
+
+-- The cursor can rest one column past the end of a line, as in VS Code,
+-- where Enter (keymaps.lua) opens a new line and Delete joins the next one.
+-- "block" is LazyVim's default (free movement in Visual block mode).
+vim.opt.virtualedit = "block,onemore"

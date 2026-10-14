@@ -27,23 +27,177 @@ vim.keymap.set({ "n", "i", "v" }, "<A-Up>", "<A-k>", { remap = true, desc = "Mov
 vim.keymap.set("i", "<Down>", "<C-o>gj", { desc = "Down" })
 vim.keymap.set("i", "<Up>", "<C-o>gk", { desc = "Up" })
 
--- Backspace deletes backwards in Normal and Visual mode too (it is only a
--- left motion there by default). In Normal mode it deletes the character
--- before the cursor ("X"), and in column 1 it joins the line onto the
--- previous one, as in Insert mode. Deleted text goes to the black-hole
--- register, so it does not replace the last yank.
-vim.keymap.set("n", "<BS>", function()
+-- Editing keys work in Normal mode as in Insert mode, without leaving
+-- Normal mode, as in VS Code: Backspace and Delete delete (joining lines at
+-- the start or end of one), Enter splits the line and Tab indents at the
+-- cursor. 'virtualedit' "onemore" (options.lua) lets the cursor sit just
+-- past the last character, where Enter opens a new line and Delete joins
+-- the next one. Deleted text goes to the black-hole register, so it does
+-- not replace the last yank. Space is left alone: it is LazyVim's leader.
+--
+-- In buffers that cannot be edited (help, quickfix, terminal, plugin UIs)
+-- the keys keep their built-in meaning; plugins' own buffer-local mappings
+-- take precedence anyway. Tab is the same key as Ctrl+I (jump forward in the
+-- jump list) in most terminals, so that is only reachable in such buffers.
+local function editable()
+  return vim.bo.modifiable and vim.bo.buftype == ""
+end
+
+local function edit_key(key, desc, fn)
+  vim.keymap.set("n", key, function()
+    if editable() then
+      fn()
+    else
+      local count = vim.v.count > 0 and vim.v.count or ""
+      vim.api.nvim_feedkeys(count .. vim.keycode(key), "n", false)
+    end
+  end, { desc = desc })
+end
+
+-- Types keys as in Insert mode and comes back to Normal mode with the cursor
+-- on the character it was on, which an extmark follows through the edit
+-- (plain Esc would leave it one column to the left of that).
+local ns = vim.api.nvim_create_namespace("normal_mode_typing")
+local function type_keys(keys)
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local mark = vim.api.nvim_buf_set_extmark(0, ns, row - 1, col, {})
+  vim.cmd("normal! i" .. keys)
+  local pos = vim.api.nvim_buf_get_extmark_by_id(0, ns, mark, {})
+  vim.api.nvim_buf_del_extmark(0, ns, mark)
+  vim.api.nvim_win_set_cursor(0, { pos[1] + 1, pos[2] })
+end
+
+-- Joins line `row` (1-based) with the next one, like Delete at the end of a
+-- line in Insert mode (no space inserted, whitespace kept).
+local function join_next(row)
+  local len = #vim.fn.getline(row)
+  vim.api.nvim_buf_set_text(0, row - 1, len, row, 0, {})
+  vim.api.nvim_win_set_cursor(0, { row, len })
+end
+
+edit_key("<BS>", "Delete Backwards", function()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   if col > 0 then
-    vim.cmd('normal! ' .. vim.v.count1 .. '"_X')
+    vim.cmd("normal! " .. vim.v.count1 .. '"_X')
   elseif row > 1 then
-    local join = #vim.fn.getline(row - 1)
-    vim.cmd("normal! kgJ")
-    vim.api.nvim_win_set_cursor(0, { row - 1, join })
+    join_next(row - 1)
   end
-end, { desc = "Delete Backwards" })
+end)
+
+edit_key("<Del>", "Delete", function()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  if col >= #vim.fn.getline(row) then
+    if row < vim.fn.line("$") then
+      join_next(row)
+    end
+  else
+    vim.cmd("normal! " .. vim.v.count1 .. '"_x')
+  end
+end)
+
+edit_key("<CR>", "Split Line", function()
+  type_keys("\r")
+end)
+
+edit_key("<Tab>", "Indent at Cursor", function()
+  type_keys("\t")
+end)
+
 vim.keymap.set("x", "<BS>", '"_d', { desc = "Delete Selection" })
+vim.keymap.set("x", "<Del>", '"_d', { desc = "Delete Selection" })
 
 -- Ctrl+S saves without leaving the current mode; LazyVim's version appends
 -- <esc>, which drops back to Normal mode.
 vim.keymap.set({ "i", "x", "n", "s" }, "<C-s>", "<cmd>w<cr>", { desc = "Save File" })
+
+-- More VS Code bindings. Ctrl+Shift+letter, Ctrl+Enter, Ctrl+. and Ctrl+`
+-- only reach nvim if the terminal reports them (kitty keyboard protocol or
+-- Windows Terminal); elsewhere they arrive as a plainer key or not at all,
+-- and the Vim/LazyVim equivalent named in the comment still works.
+local map = vim.keymap.set
+
+-- Ctrl+Backspace / Ctrl+Delete delete a word backwards / forwards, joining
+-- lines at the start / end of one. Windows Terminal sends Ctrl+Backspace as
+-- Ctrl+H, hence the Insert-mode <C-h> (in Normal mode Ctrl+H stays LazyVim's
+-- go-to-left-window).
+map("i", "<C-BS>", "<C-w>", { desc = "Delete Word Backwards" })
+map("i", "<C-h>", "<C-w>", { desc = "Delete Word Backwards" })
+map("i", "<C-Del>", function()
+  return vim.fn.col(".") > #vim.fn.getline(".") and "<Del>" or '<C-o>"_dw'
+end, { expr = true, desc = "Delete Word" })
+map("n", "<C-BS>", '"_db', { desc = "Delete Word Backwards" })
+map("n", "<C-Del>", function()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  if col >= #vim.fn.getline(row) and row < vim.fn.line("$") then
+    join_next(row)
+  else
+    vim.cmd('normal! "_dw')
+  end
+end, { desc = "Delete Word" })
+
+-- Ctrl+/ toggles a comment (gcc / gc); terminals send it as Ctrl+_ too.
+-- LazyVim had it open the terminal, which moves to Ctrl+` (and stays on
+-- <leader>ft); inside the terminal Ctrl+/ still hides it again.
+for _, key in ipairs({ "<C-/>", "<C-_>" }) do
+  map("n", key, "gcc", { remap = true, desc = "Toggle Comment" })
+  map("x", key, "gcgv", { remap = true, desc = "Toggle Comment" })
+  map("i", key, "<C-o>gcc", { remap = true, desc = "Toggle Comment" })
+end
+map({ "n", "t" }, "<C-`>", function()
+  Snacks.terminal.focus(nil, { cwd = LazyVim.root() })
+end, { desc = "Terminal (Root Dir)" })
+
+-- Ctrl+P opens a file (<leader><space>), Ctrl+Shift+P the command palette
+-- (F1), Ctrl+Shift+F searches all files (<leader>/).
+map("n", "<C-p>", LazyVim.pick("files"), { desc = "Find Files (Root Dir)" })
+map({ "n", "v" }, "<C-S-p>", palette, { desc = "Command Palette" })
+map("n", "<C-S-f>", LazyVim.pick("live_grep"), { desc = "Grep (Root Dir)" })
+
+-- LSP: F2 renames (<leader>cr), F12 goes to the definition (gd), Shift+F12
+-- lists references (gr; some terminals send it as F24), Ctrl+. shows code
+-- actions (<leader>ca).
+map("n", "<F2>", vim.lsp.buf.rename, { desc = "Rename" })
+map("n", "<F12>", "gd", { remap = true, desc = "Goto Definition" })
+map("n", "<S-F12>", "gr", { remap = true, desc = "References" })
+map("n", "<F24>", "gr", { remap = true, desc = "References" })
+map({ "n", "x" }, "<C-.>", vim.lsp.buf.code_action, { desc = "Code Action" })
+
+-- Shift+Alt+Up/Down duplicate the line or the selected lines; the cursor or
+-- selection goes to the copy, as in VS Code.
+map({ "n", "i" }, "<M-S-Down>", "<cmd>t.<cr>", { desc = "Duplicate Line Down" })
+map({ "n", "i" }, "<M-S-Up>", "<cmd>t-1<cr>", { desc = "Duplicate Line Up" })
+map("x", "<M-S-Down>", ":<C-u>'<,'>t'><cr>'[V']", { silent = true, desc = "Duplicate Lines Down" })
+map("x", "<M-S-Up>", ":<C-u>'<,'>t'<-1<cr>'[V']", { silent = true, desc = "Duplicate Lines Up" })
+
+-- Ctrl+Shift+K deletes the line or the selected lines (dd).
+map("n", "<C-S-k>", '"_dd', { desc = "Delete Line" })
+map("i", "<C-S-k>", '<cmd>normal! "_dd<cr>', { desc = "Delete Line" })
+map("x", "<C-S-k>", ":<C-u>'<,'>d _<cr>", { silent = true, desc = "Delete Lines" })
+
+-- Ctrl+Enter / Ctrl+Shift+Enter open a line below / above without
+-- splitting the current one; Normal mode stays Normal mode.
+map("n", "<C-CR>", "<cmd>call append(line('.'), '')<cr>j", { desc = "New Line Below" })
+map("n", "<C-S-CR>", "<cmd>call append(line('.') - 1, '')<cr>k", { desc = "New Line Above" })
+map("i", "<C-CR>", "<C-o>o", { desc = "New Line Below" })
+map("i", "<C-S-CR>", "<C-o>O", { desc = "New Line Above" })
+
+-- Tab / Shift+Tab indent / unindent the selection (keeping it); Shift+Tab
+-- unindents the line in Normal and Insert mode (in Insert mode blink.cmp's
+-- snippet jumps come first while a snippet is active).
+map("x", "<Tab>", ">gv", { desc = "Indent" })
+map("x", "<S-Tab>", "<gv", { desc = "Unindent" })
+map("n", "<S-Tab>", "<<", { desc = "Unindent" })
+map("i", "<S-Tab>", "<C-d>", { desc = "Unindent" })
+
+-- Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo, Ctrl+A selects everything.
+-- They replace Vim's Ctrl+Z (suspend), Ctrl+Y (scroll a line) and Ctrl+A
+-- (increment; Ctrl+X still decrements, g Ctrl+A increments a selection).
+map("n", "<C-z>", "u", { desc = "Undo" })
+map("n", "<C-y>", "<C-r>", { desc = "Redo" })
+map("n", "<C-S-z>", "<C-r>", { desc = "Redo" })
+map("i", "<C-z>", "<C-o>u", { desc = "Undo" })
+map("i", "<C-y>", "<C-o><C-r>", { desc = "Redo" })
+map("i", "<C-S-z>", "<C-o><C-r>", { desc = "Redo" })
+map("x", "<C-z>", "<Esc>u", { desc = "Undo" })
+map("n", "<C-a>", "ggVG", { desc = "Select All" })
+map({ "i", "x" }, "<C-a>", "<Esc>ggVG", { desc = "Select All" })
