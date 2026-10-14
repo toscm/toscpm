@@ -1,0 +1,55 @@
+-- Multiple cursors (multicursor.nvim), with VS Code's bindings where the
+-- terminal passes them through.
+--
+--   Ctrl+D              select the word under the cursor; pressed again on a
+--                       selection, add a cursor on its next match
+--   Ctrl+Shift+L        add a cursor on every match of the word/selection
+--   Ctrl+Alt+Up/Down    add a cursor on the line above/below
+--   Alt+Click           add or remove a cursor
+--   Esc                 back to a single cursor
+--
+-- With several cursors, every edit applies to all of them: c on the
+-- selections types the replacement everywhere, i/a/A/I insert at each
+-- cursor, and Vim motions and operators work as with a single cursor.
+--
+-- Ctrl+D replaces Vim's half-page-down scroll (PageDown still scrolls).
+-- Ctrl+Shift+L only arrives if the terminal reports Shift with Ctrl+letter
+-- (kitty keyboard protocol, e.g. WezTerm, kitty, recent Windows Terminal);
+-- elsewhere it reads as Ctrl+L.
+return {
+  {
+    "jake-stewart/multicursor.nvim",
+    branch = "1.0",
+    config = function()
+      local mc = require("multicursor-nvim")
+      mc.setup()
+
+      local set = vim.keymap.set
+      set("n", "<C-d>", "viw", { desc = "Select Word" })
+      set("x", "<C-d>", function()
+        mc.matchAddCursor(1)
+      end, { desc = "Add Cursor on Next Match" })
+      set({ "n", "x" }, "<C-S-l>", mc.matchAllAddCursors, { desc = "Add Cursors on All Matches" })
+      set({ "n", "x" }, "<C-A-Up>", function()
+        mc.lineAddCursor(-1)
+      end, { desc = "Add Cursor Above" })
+      set({ "n", "x" }, "<C-A-Down>", function()
+        mc.lineAddCursor(1)
+      end, { desc = "Add Cursor Below" })
+      set("n", "<A-LeftMouse>", mc.handleMouse, { desc = "Add/Remove Cursor" })
+      set("n", "<A-LeftDrag>", mc.handleMouseDrag)
+      set("n", "<A-LeftRelease>", mc.handleMouseRelease)
+
+      -- Only while there are several cursors.
+      mc.addKeymapLayer(function(layerSet)
+        layerSet("n", "<esc>", function()
+          if not mc.cursorsEnabled() then
+            mc.enableCursors()
+          else
+            mc.clearCursors()
+          end
+        end)
+      end)
+    end,
+  },
+}

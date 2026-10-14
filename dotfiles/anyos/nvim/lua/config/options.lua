@@ -72,3 +72,11 @@ if vim.env.SSH_CONNECTION or vim.env.TMUX then
     paste = { ["+"] = paste("+"), ["*"] = paste("*") },
   }
 end
+
+-- Moving left past the start of a line continues at the end of the previous
+-- one, and right past the end at the start of the next, as in VS Code: for
+-- the arrows (<,> in Normal/Visual, [,] in Insert mode) and h/l, besides the
+-- default Backspace and Space (b,s). Operators are unaffected, so dl or yl at
+-- the end of a line still stay on it. Word motions (b, w, Ctrl+Left/Right)
+-- cross lines anyway.
+vim.opt.whichwrap = "b,s,<,>,[,],h,l"

@@ -6,6 +6,20 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.53.0
+
+- `nvim`: multiple cursors (multicursor.nvim) with VS Code's bindings.
+  Ctrl+D selects the word under the cursor and, pressed again, adds a cursor on the next match; Ctrl+Shift+L adds one on every match, Ctrl+Alt+Up/Down on the line above/below, Alt+Click adds or removes one, and Esc goes back to a single cursor.
+  Ctrl+D no longer scrolls half a page; PageDown still does.
+
+- `nvim`: Ctrl+S saves without leaving the current mode (LazyVim's mapping dropped back to Normal mode).
+
+- `nvim`: Backspace deletes backwards in Normal and Visual mode too: the character before the cursor, joining the line onto the previous one in column 1, or the selection.
+
+- `nvim`: Up/Down in Insert mode move by screen line through wrapped lines, as j/k/Up/Down already did in Normal and Visual mode.
+
+- `nvim`: Left/Right and h/l continue onto the previous or next line at the start or end of a line (`whichwrap`).
+
 ## 1.52.2
 
 - `nvim`: github-theme compiles its themes into `stdpath("data")` instead of `stdpath("cache")`.
