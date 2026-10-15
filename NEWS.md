@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.57.0
+
+- `fd` and `rg` are back to their defaults: 1.56.0's always-on `--hidden` and the `~/.ripgreprc` dotfile are gone (delete a leftover `~/.ripgreprc` symlink).
+  Instead, the shell profiles (PowerShell, zsh, bash) define variants that print the command they run (to stderr) and then run it.
+  `fda` (`fd --hidden --exclude .git`) and `rga` (`rg --hidden --glob '!.git'`) search dot folders but skip `.git` and gitignored paths.
+  `fdaa` (`fd --hidden --no-ignore`) and `rgaa` (`rg --hidden --no-ignore`) search everything, including `.git` and gitignored paths.
+  `rga` shadows the ripgrep-all tool of the same name, if installed.
+
 ## 1.56.0
 
 - `fd` and `rg`: include dotfiles and dot folders by default, but never descend into `.git`.

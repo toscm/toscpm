@@ -23,12 +23,16 @@ alias gs='git status'
 alias gd='git diff'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
-# fd and ripgrep: include dotfiles and dot folders, but skip .git.
-# fd has no config file, so alias it (Debian/Ubuntu ship it as fdfind);
-# ripgrep reads ~/.ripgreprc.
-if command -v fd >/dev/null; then alias fd='fd --hidden --exclude .git'
-elif command -v fdfind >/dev/null; then alias fd='fdfind --hidden --exclude .git'; fi
-export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
+# fd/rg variants that also search dot folders (plain fd/rg keep their defaults).
+#   fda, rga:   dot folders, but not .git and not gitignored paths
+#   fdaa, rgaa: everything, including .git and gitignored paths
+# Each prints the command it runs to stderr. Debian/Ubuntu ship fd as fdfind.
+_run_shown() { { printf '+'; printf ' %q' "$@"; printf '\n'; } >&2; command "$@"; }
+_fd_bin() { command -v fd >/dev/null && echo fd || echo fdfind; }
+fda()  { _run_shown "$(_fd_bin)" --hidden --exclude .git "$@"; }
+fdaa() { _run_shown "$(_fd_bin)" --hidden --no-ignore "$@"; }
+rga()  { _run_shown rg --hidden --glob '!.git' "$@"; }
+rgaa() { _run_shown rg --hidden --no-ignore "$@"; }
 alias v='nvim'
 # tmux-peer [session]: attach to a running session (default: the first one)
 # from another terminal with its own current window. It joins the session's

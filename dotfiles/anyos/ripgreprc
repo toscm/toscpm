@@ -1,5 +1,0 @@
-# ripgrep config, read via RIPGREP_CONFIG_PATH (set in the shell profiles).
-# Search hidden files and directories (dotfiles), but never inside .git.
-# Ignore files (.gitignore etc.) still apply; `rg --no-config -uu` searches everything.
---hidden
---glob=!.git

@@ -52,10 +52,21 @@ $culture.DateTimeFormat.ShortDatePattern = 'yyyy-MM-dd'
 # equivalent knob (GNU ls compatible, so it applies to any ls run from here).
 $env:TIME_STYLE = 'long-iso'
 
-# fd and ripgrep: include dotfiles and dot folders, but skip .git.
-# fd has no config file, so wrap it; ripgrep reads ~/.ripgreprc.
-function fd { fd.exe --hidden --exclude .git @args }
-$env:RIPGREP_CONFIG_PATH = "$HOME\.ripgreprc"
+# fd/rg variants that also search dot folders (plain fd/rg keep their defaults).
+#   fda, rga:   dot folders, but not .git and not gitignored paths
+#   fdaa, rgaa: everything, including .git and gitignored paths
+# Each prints the command it runs (to the host, so pipes stay clean).
+function Invoke-Shown([string]$exe, [object[]]$argv) {
+    $shown = foreach ($a in $argv) {
+        if ("$a" -eq '' -or "$a" -match '[\s"''!*?$`;|&<>(){}]') { "'" + ("$a" -replace "'", "''") + "'" } else { "$a" }
+    }
+    Write-Host "+ $exe $($shown -join ' ')" -ForegroundColor DarkGray
+    & $exe @argv
+}
+function fda  { Invoke-Shown fd (@('--hidden', '--exclude', '.git') + $args) }
+function fdaa { Invoke-Shown fd (@('--hidden', '--no-ignore') + $args) }
+function rga  { Invoke-Shown rg (@('--hidden', '--glob', '!.git') + $args) }
+function rgaa { Invoke-Shown rg (@('--hidden', '--no-ignore') + $args) }
 
 # Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
 function y {

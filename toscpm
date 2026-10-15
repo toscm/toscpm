@@ -812,9 +812,6 @@ DOTFILES = [
     ("~/AppData/Roaming/yazi/config", "dotfiles/anyos/yazi",                  "windows"),
     ("~/.claude/CLAUDE.md",           "dotfiles/anyos/claude/CLAUDE.md",      None),
     ("~/.tmux.conf",                  "dotfiles/anyos/tmux.conf",             None),
-    # ripgrep has no default config path; the shell profiles point
-    # RIPGREP_CONFIG_PATH at this file.
-    ("~/.ripgreprc",                  "dotfiles/anyos/ripgreprc",             None),
     # bat reads ~/.config/bat/config on macOS and Linux, %APPDATA%/bat/config on Windows.
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "macos"),
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "linux"),
