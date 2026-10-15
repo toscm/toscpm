@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.58.0
+
+- New Windows dotfile `dotfiles/windows/autohotkey/umlaute.ahk` (Alt+a/o/u/s types ä/ö/ü/ß, with Shift the capitals), previously an untracked file in the Startup folder.
+
+- `toscpm link` registers AutoHotkey scripts as Task Scheduler tasks (`toscpm-umlaute`, and `toscpm-capman` if `capman` is cloned next to toscpm) and `toscpm check` reports them.
+  Each task starts its script at logon and restarts it at every unlock, because a script running for weeks can silently stop receiving its hotkeys.
+  Remove the old Startup folder entries (`umlaute.ahk`, `capman.ahk.lnk`), otherwise the scripts run twice.
+
 ## 1.57.0
 
 - `fd` and `rg` are back to their defaults: 1.56.0's always-on `--hidden` and the `~/.ripgreprc` dotfile are gone (delete a leftover `~/.ripgreprc` symlink).

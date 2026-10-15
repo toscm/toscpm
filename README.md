@@ -61,3 +61,13 @@ so they land on PATH. Each is linked only on the OS it targets.
 Helper scripts in `scripts/` (`configure_git`, `create_keypair`,
 `create_user`) are run directly; legacy Ubuntu 22 install scripts in
 `ubuntu22/`.
+
+## Autostart (Windows)
+
+AutoHotkey scripts are not started from the Startup folder but from Task Scheduler tasks that `toscpm link` registers (list: `AUTOSTART` in `toscpm`).
+Each task starts its script at logon and restarts it at every unlock, since a script running for weeks can silently stop receiving its hotkeys.
+If a hotkey stops working anyway, lock and unlock the screen (Win+L), or run `schtasks /Run /TN toscpm-umlaute`.
+
+- `toscpm-umlaute` runs `dotfiles/windows/autohotkey/umlaute.ahk`: Alt+a/o/u/s types ä/ö/ü/ß, with Shift the capitals.
+
+- `toscpm-capman` runs `capman/capman.ahk` from the [capman](https://github.com/toscm/capman) repo, if it is cloned next to toscpm.
