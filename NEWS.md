@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.56.0
+
+- `fd` and `rg`: include dotfiles and dot folders by default, but never descend into `.git`.
+  `fd` has no config file, so the shell profiles (PowerShell, zsh, bash) wrap it with `--hidden --exclude .git`.
+  `rg` reads the new dotfile `~/.ripgreprc` (`--hidden`, `--glob=!.git`) via `RIPGREP_CONFIG_PATH`, which the profiles set.
+  To search everything, including `.git`, use `rg --no-config -uu` or `fd.exe -HI` (PowerShell) / `command fd -HI` (zsh, bash).
+
 ## 1.55.0
 
 - `nvim`: errors no longer stay until dismissed: they disappear after 15 seconds, other notifications still after 5.

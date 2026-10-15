@@ -110,6 +110,13 @@ fi
 # Debian/Ubuntu ship bat as batcat
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
 
+# fd and ripgrep: include dotfiles and dot folders, but skip .git.
+# fd has no config file, so alias it (Debian/Ubuntu ship it as fdfind);
+# ripgrep reads ~/.ripgreprc.
+if command -v fd >/dev/null; then alias fd='fd --hidden --exclude .git'
+elif command -v fdfind >/dev/null; then alias fd='fdfind --hidden --exclude .git'; fi
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
+
 alias gaa='git add -A'
 alias gcm='git commit -m'
 alias gp='git push'

@@ -23,6 +23,12 @@ alias gs='git status'
 alias gd='git diff'
 alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
+# fd and ripgrep: include dotfiles and dot folders, but skip .git.
+# fd has no config file, so alias it (Debian/Ubuntu ship it as fdfind);
+# ripgrep reads ~/.ripgreprc.
+if command -v fd >/dev/null; then alias fd='fd --hidden --exclude .git'
+elif command -v fdfind >/dev/null; then alias fd='fdfind --hidden --exclude .git'; fi
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
 alias v='nvim'
 # tmux-peer [session]: attach to a running session (default: the first one)
 # from another terminal with its own current window. It joins the session's

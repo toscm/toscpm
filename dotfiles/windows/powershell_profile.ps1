@@ -52,6 +52,11 @@ $culture.DateTimeFormat.ShortDatePattern = 'yyyy-MM-dd'
 # equivalent knob (GNU ls compatible, so it applies to any ls run from here).
 $env:TIME_STYLE = 'long-iso'
 
+# fd and ripgrep: include dotfiles and dot folders, but skip .git.
+# fd has no config file, so wrap it; ripgrep reads ~/.ripgreprc.
+function fd { fd.exe --hidden --exclude .git @args }
+$env:RIPGREP_CONFIG_PATH = "$HOME\.ripgreprc"
+
 # Yazi: `y` launches yazi and cd's to the dir you quit in (q to keep, Q to cancel)
 function y {
     $tmp = [System.IO.Path]::GetTempFileName()
