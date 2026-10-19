@@ -24,6 +24,25 @@
   - Treat these clones as **read-only** for analysis: do not pull, fetch,
     checkout, or otherwise modify them without asking.
 
+## Public repositories and sensitive data
+
+Many of my repositories are public (check with `gh repo view --json visibility`), and whatever is committed there stays public in the git history even after deletion.
+Before committing to a public repository, check the diff and every new file, and never commit:
+
+- unpublished research (data, results, gene lists, manuscripts or manuscript methods, the design of unpublished projects) or anything written from such sources;
+
+- information about people (colleagues, collaborators, patients, study participants);
+
+- internal project, funding or employer information;
+
+- credentials, tokens, `.env` files, database dumps, backups or exports.
+
+Commit messages, issues and docs in a public repo are public too, so do not describe private content there either.
+When in doubt, keep it out and ask me.
+
+In particular, `github.com/toscm/pauk` (my flashcard app) is public: its `content/` holds only published knowledge.
+Knowledge cards about my own or unpublished projects live in a private folder next to the project (convention: `~/projects/<project>/pauk-cards/`) and are imported from there with `pauk import`; never move them into the pauk repo.
+
 ## Environment & tooling (toscpm)
 
 My core dev tools and dotfiles are versioned in the `toscpm` repo

@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.59.0
+
+- Claude `CLAUDE.md`: new section "Public repositories and sensitive data".
+  Before committing to a public repo, check the diff for unpublished research, information about people, internal project or funding details and credentials, and keep them out.
+  Private pauk knowledge cards live in `~/projects/<project>/pauk-cards/`, never in the public pauk repo.
+
 ## 1.58.0
 
 - New Windows dotfile `dotfiles/windows/autohotkey/umlaute.ahk` (Alt+a/o/u/s types ä/ö/ü/ß, with Shift the capitals), previously an untracked file in the Startup folder.
