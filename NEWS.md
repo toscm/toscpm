@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.60.0
+
+- Neovim: the Visual selection is a solid blue with white text (`#1f6feb` in the dark theme, `#0969da` in the light one) instead of github-theme's faint tint, which was barely visible.
+
 ## 1.59.0
 
 - Claude `CLAUDE.md`: new section "Public repositories and sensitive data".

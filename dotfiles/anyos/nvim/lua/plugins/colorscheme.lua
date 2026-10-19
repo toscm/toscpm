@@ -41,8 +41,23 @@ return {
     -- under %TEMP% and gets cleaned. The cleanup can leave the hash file
     -- behind, so the plugin skips recompiling and :colorscheme fails with
     -- "attempt to call local 'compiled_theme' (a nil value)".
+    --
+    -- The themes' Visual highlight is a faint blue tint that is barely
+    -- visible, so the selection gets a solid blue background with white text
+    -- instead, as clear as a selection in tmux's copy mode or the terminal's
+    -- mark mode.
     opts = {
       options = { compile_path = vim.fn.stdpath("data") .. "/github-theme" },
+      groups = {
+        github_dark_default = {
+          Visual = { bg = "#1f6feb", fg = "#ffffff" },
+          VisualNOS = { link = "Visual" },
+        },
+        github_light_default = {
+          Visual = { bg = "#0969da", fg = "#ffffff" },
+          VisualNOS = { link = "Visual" },
+        },
+      },
     },
     init = function()
       local function ask()
