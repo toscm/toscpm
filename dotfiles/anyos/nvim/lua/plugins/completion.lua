@@ -18,7 +18,8 @@
 --
 -- Copilot (LazyVim's ai.copilot extra, enabled in lazyvim.json) suggests
 -- while typing in code but, like the menu, only on request in the prose
--- filetypes. <A-\> asks for a suggestion, as in VS Code; <Tab> accepts it,
+-- filetypes. <A-\> asks for a suggestion, as in VS Code (in Normal mode it
+-- first starts Insert mode after the cursor, like a); <Tab> accepts it,
 -- <A-]>/<A-[> cycle through alternatives and <C-]> dismisses it. Sign in
 -- once with :Copilot auth.
 --
@@ -77,6 +78,17 @@ return {
           require("copilot.suggestion").next()
         end,
         mode = "i",
+        desc = "Copilot suggestion",
+      },
+      {
+        "<A-\\>",
+        function()
+          vim.api.nvim_feedkeys("a", "n", false)
+          vim.schedule(function()
+            require("copilot.suggestion").next()
+          end)
+        end,
+        mode = "n",
         desc = "Copilot suggestion",
       },
     },

@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.62.0
+
+- Neovim: `Alt+\` also works in Normal mode: it starts Insert mode after the cursor (like `a`) and asks Copilot for a suggestion.
+
+- Neovim: the command palette is on `F1` only, now also in Insert mode.
+  The `Ctrl+Shift+P` mapping is gone, because terminals send `Ctrl+Shift+P` as plain `Ctrl+P`, which opens a file instead.
+
 ## 1.61.1
 
 - Neovim: `Alt+\` now shows a Copilot suggestion in a file that has not been edited since it was opened.

@@ -4,11 +4,13 @@
 
 -- Command palette, as in VS Code: a picker over every keymap with its
 -- description, Enter runs it. LazyVim binds it to <leader>sk; F1 (which
--- otherwise opens :help) and <leader>p make it quicker to reach.
+-- otherwise opens :help) and <leader>p make it quicker to reach. VS Code's
+-- Ctrl+Shift+P is not used: terminals send Ctrl+Shift+letter as plain
+-- Ctrl+letter, so it would arrive as Ctrl+P and open a file instead.
 local function palette()
   Snacks.picker.keymaps()
 end
-vim.keymap.set({ "n", "v" }, "<F1>", palette, { desc = "Command Palette" })
+vim.keymap.set({ "n", "v", "i" }, "<F1>", palette, { desc = "Command Palette" })
 vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
 
 -- y and Ctrl+C on a Visual selection (from the mouse or Shift+arrows) copy it
@@ -160,10 +162,9 @@ map({ "n", "t" }, "<C-`>", function()
   Snacks.terminal.focus(nil, { cwd = LazyVim.root() })
 end, { desc = "Terminal (Root Dir)" })
 
--- Ctrl+P opens a file (<leader><space>), Ctrl+Shift+P the command palette
--- (F1), Ctrl+Shift+F searches all files (<leader>/).
+-- Ctrl+P opens a file (<leader><space>), Ctrl+Shift+F searches all files
+-- (<leader>/). The command palette is on F1 (see the top of this file).
 map("n", "<C-p>", LazyVim.pick("files"), { desc = "Find Files (Root Dir)" })
-map({ "n", "v" }, "<C-S-p>", palette, { desc = "Command Palette" })
 map("n", "<C-S-f>", LazyVim.pick("live_grep"), { desc = "Grep (Root Dir)" })
 
 -- LSP: F2 renames (<leader>cr), F12 goes to the definition (gd), Shift+F12
