@@ -1,0 +1,783 @@
+#!/usr/bin/env python3
+"""port - List ssh client connections and their port forwards, start and stop tunnels.
+
+Works on Windows (Windows OpenSSH and Git for Windows' ssh), Linux and macOS,
+with the Python 3 standard library only.
+
+    port                            same as `port ls`
+    port ls [--json]                ssh connections and their forwards
+    port forward LOCAL HOST [REMOTE]
+    port forward LOCAL HOST:RPORT   shorthand for REMOTE = 127.0.0.1:RPORT
+    port cancel LOCAL               stop the tunnel that forwards LOCAL
+
+`ls --json` prints a list with one object per ssh client process.
+This is the interface for other tools, so its fields stay stable:
+
+    pid           int
+    host          str    destination as given on the command line ("?" if unknown)
+    kind          str    "tunnel" (-N), "interactive" (no remote command),
+                         "other" (remote command, -W proxy helper, git, scp, ...),
+                         "mux" (ControlMaster process), "unknown" (command line unreadable)
+    command_line  str    full command line, or null if unreadable
+    forwards      list of objects:
+      type        str    "L", "R" or "D"
+      listen      str    "PORT" or "BIND:PORT" (or a socket path)
+      port        int    listen port, or null for a socket path
+      target      str    "HOST:PORT" (or a socket path), null for D and dynamic R
+      source      str    "cmdline", "config" (ssh -G HOST) or "runtime"
+                         (a socket the process listens on that no known forward
+                         explains, e.g. added with ~C during the session)
+      listening   bool   whether the process really listens on the port,
+                         null for R (it listens on the server) or if unknown
+"""
+import argparse
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+WINDOWS = os.name == "nt"
+MACOS = sys.platform == "darwin"
+NO_WINDOW = 0x08000000 if WINDOWS else 0          # CREATE_NO_WINDOW
+NEW_GROUP = 0x00000200 if WINDOWS else 0          # CREATE_NEW_PROCESS_GROUP
+
+# ssh options that take a value (from ssh(1) SYNOPSIS).
+VALUE_OPTS = set("BbcDEeFIiJLlmOoPpQRSWw")
+
+FORWARD_WAIT = 10   # seconds `forward` waits for the port to listen
+WARNINGS = []
+
+
+def warn(msg):
+    if msg not in WARNINGS:
+        WARNINGS.append(msg)
+        print(f"port: warning: {msg}", file=sys.stderr)
+
+
+def run(cmd, timeout=15):
+    """Run cmd, return stdout as text, or None (with a warning) if it fails."""
+    try:
+        r = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, errors="replace", timeout=timeout,
+                           creationflags=NO_WINDOW)
+    except FileNotFoundError:
+        warn(f"{cmd[0]} not found")
+        return None
+    except (OSError, subprocess.TimeoutExpired) as e:
+        warn(f"{os.path.basename(cmd[0])} failed: {e}")
+        return None
+    if r.returncode != 0:
+        err = (r.stderr.strip().splitlines() or [f"exit code {r.returncode}"])[-1]
+        warn(f"{os.path.basename(cmd[0])} failed: {err}")
+        return None
+    return r.stdout
+
+
+def ssh_exe():
+    """The ssh to start tunnels with.
+
+    On Windows prefer Windows OpenSSH, which uses the Windows ssh-agent
+    service; Git for Windows' ssh, first on PATH in Git Bash, does not.
+    """
+    if WINDOWS:
+        root = os.environ.get("SystemRoot", r"C:\Windows")
+        native = os.path.join(root, "System32", "OpenSSH", "ssh.exe")
+        if os.path.isfile(native):
+            return native
+    return shutil.which("ssh") or "ssh"
+
+
+# ---------------------------------------------------------------------------
+# Command lines
+# ---------------------------------------------------------------------------
+
+def split_windows(cmdline):
+    """Split a Windows command line like CommandLineToArgvW does."""
+    args, cur, i, n = [], [], 0, len(cmdline)
+    in_quotes, have_arg = False, False
+    while i < n:
+        c = cmdline[i]
+        if c == "\\":
+            j = i
+            while j < n and cmdline[j] == "\\":
+                j += 1
+            count = j - i
+            if j < n and cmdline[j] == '"':
+                cur.append("\\" * (count // 2))
+                if count % 2:
+                    cur.append('"')
+                    i = j + 1
+                else:
+                    i = j
+                have_arg = True
+            else:
+                cur.append("\\" * count)
+                i = j
+                have_arg = True
+            continue
+        if c == '"':
+            if in_quotes and i + 1 < n and cmdline[i + 1] == '"':
+                cur.append('"')
+                i += 2
+                continue
+            in_quotes = not in_quotes
+            have_arg = True
+            i += 1
+            continue
+        if c in " \t" and not in_quotes:
+            if have_arg:
+                args.append("".join(cur))
+                cur, have_arg = [], False
+            i += 1
+            continue
+        cur.append(c)
+        have_arg = True
+        i += 1
+    if have_arg:
+        args.append("".join(cur))
+    return args
+
+
+def split_cmdline(cmdline):
+    if WINDOWS:
+        return split_windows(cmdline)
+    try:
+        return shlex.split(cmdline)
+    except ValueError:
+        return cmdline.split()
+
+
+def parse_ssh_args(argv):
+    """Parse an ssh argv (without argv[0]) like ssh's getopt loop does.
+
+    ssh accepts options before and after the destination; the first
+    non-option argument after the destination starts the remote command.
+    Returns (opts, dest, command) with opts a list of (letter, value).
+    """
+    opts, dest, command = [], None, []
+    i, n = 0, len(argv)
+    while i < n:
+        a = argv[i]
+        if a == "--":
+            rest = argv[i + 1:]
+            if dest is None and rest:
+                dest, rest = rest[0], rest[1:]
+            command = rest
+            break
+        if a.startswith("-") and len(a) > 1:
+            j = 1
+            while j < len(a):
+                letter = a[j]
+                if letter in VALUE_OPTS:
+                    value = a[j + 1:]
+                    if not value and i + 1 < n:
+                        i += 1
+                        value = argv[i]
+                    opts.append((letter, value))
+                    break
+                opts.append((letter, None))
+                j += 1
+            i += 1
+            continue
+        if dest is None:
+            dest = a
+            i += 1
+            continue
+        command = argv[i:]
+        break
+    return opts, dest, command
+
+
+def split_spec(spec, sep=None):
+    """Split a forward spec on ':' (or '/' if it has no ':'), keeping [v6]."""
+    if sep is None:
+        sep = ":" if ":" in spec or "/" not in spec else "/"
+    parts, cur, depth = [], "", 0
+    for c in spec:
+        if c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+        if c == sep and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += c
+    parts.append(cur)
+    return parts
+
+
+def strip_brackets(h):
+    return h[1:-1] if h.startswith("[") and h.endswith("]") else h
+
+
+def hostport(host, port):
+    host = strip_brackets(host)
+    if ":" in host:
+        host = f"[{host}]"
+    return f"{host}:{port}"
+
+
+def make_forward(ftype, bind, port, target, source):
+    port_int = int(port) if str(port).isdigit() else None
+    if bind and port_int is not None:
+        listen = hostport(bind, port)
+    else:
+        listen = str(port)
+    return {"type": ftype, "listen": listen, "port": port_int, "target": target,
+            "source": source, "listening": None}
+
+
+def parse_forward(ftype, spec, source):
+    """Parse the value of -L/-R/-D (or a LocalForward line joined by ':')."""
+    p = split_spec(spec.strip())
+    if ftype == "D":
+        bind, port = (p[0], p[1]) if len(p) >= 2 else (None, p[0])
+        return make_forward("D", bind, port, None, source)
+    if len(p) >= 4:
+        return make_forward(ftype, p[0], p[1], hostport(p[2], p[3]), source)
+    if len(p) == 3:
+        if p[2].isdigit():          # port:host:hostport (or socket:host:hostport)
+            return make_forward(ftype, None, p[0], hostport(p[1], p[2]), source)
+        return make_forward(ftype, p[0], p[1], p[2], source)   # bind:port:socket
+    if len(p) == 2:
+        if ftype == "R" and p[1].isdigit():                    # -R bind:port (SOCKS)
+            return make_forward("R", p[0], p[1], None, source)
+        return make_forward(ftype, None, p[0], p[1], source)   # port:socket
+    if ftype == "R":                                           # -R port (SOCKS)
+        return make_forward("R", None, p[0], None, source)
+    return None
+
+
+def parse_g_line(line):
+    """Parse a localforward/remoteforward/dynamicforward line of `ssh -G`."""
+    key, _, rest = line.partition(" ")
+    ftype = {"localforward": "L", "remoteforward": "R", "dynamicforward": "D"}.get(key.lower())
+    if not ftype:
+        return None
+    fields = rest.split()
+    if not fields:
+        return None
+    lst = split_spec(fields[0], ":")
+    bind, port = (lst[0], lst[1]) if len(lst) == 2 else (None, lst[0])
+    target = None
+    if ftype != "D" and len(fields) > 1:
+        t = split_spec(fields[1], ":")
+        target = hostport(t[0], t[1]) if len(t) == 2 else fields[1]
+        if target in ("socks:0", "[socks]:0"):
+            target = None
+    return make_forward(ftype, bind, port, target, "config")
+
+
+# ---------------------------------------------------------------------------
+# Processes and listening sockets
+# ---------------------------------------------------------------------------
+
+def is_ssh_program(arg0):
+    name = re.split(r"[\\/]", arg0)[-1].lower()
+    return name in ("ssh", "ssh.exe")
+
+
+def ssh_processes():
+    """Return [(pid, command_line or None)] of the ssh client processes."""
+    if WINDOWS:
+        ps = ("$p = @(Get-CimInstance Win32_Process -Filter \"Name='ssh.exe'\" | "
+              "Select-Object ProcessId,CommandLine); ConvertTo-Json -Compress -InputObject $p")
+        out = run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps])
+        if out is None:
+            return []
+        try:
+            data = json.loads(out or "[]")
+        except ValueError:
+            warn("cannot parse the process list")
+            return []
+        if isinstance(data, dict):
+            data = [data]
+        return [(int(d["ProcessId"]), d.get("CommandLine")) for d in data or []]
+
+    out = run(["ps", "-eo", "pid=,args="])
+    if out is None:
+        return []
+    procs = []
+    for line in out.splitlines():
+        pid, _, args = line.strip().partition(" ")
+        if not pid.isdigit():
+            continue
+        args = args.strip()
+        if args.startswith("ssh: ") or (args and is_ssh_program(args.split()[0])):
+            procs.append((int(pid), args))
+    return procs
+
+
+def proc_argv(pid, cmdline):
+    """Exact argv from /proc on Linux, else the split command line."""
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            raw = f.read()
+        argv = [a.decode(errors="replace") for a in raw.split(b"\0") if a]
+        if argv and not argv[0].startswith("ssh: "):
+            return argv
+    except OSError:
+        pass
+    return split_cmdline(cmdline)
+
+
+def addr_port(local):
+    """Split '127.0.0.1:22', '[::1]:22', '*:22', 'fe80::1%lo:22' into (addr, port)."""
+    addr, _, port = local.rpartition(":")
+    addr = strip_brackets(addr).split("%")[0]
+    return addr, int(port) if port.isdigit() else None
+
+
+def listeners():
+    """Return [(addr, port, pid or None, name or None)] of listening TCP sockets.
+
+    None if they cannot be determined.
+    """
+    socks = []
+    if WINDOWS:
+        # netstat is much faster than Get-NetTCPConnection and its columns
+        # are not localized; listening rows have a foreign port of 0.
+        out = run(["netstat", "-ano", "-p", "TCP"])
+        out6 = run(["netstat", "-ano", "-p", "TCPv6"])
+        if out is None and out6 is None:
+            return None
+        for line in ((out or "") + (out6 or "")).splitlines():
+            f = line.split()
+            if len(f) >= 5 and f[0].upper().startswith("TCP") and f[2].endswith(":0") \
+                    and f[-1].isdigit():
+                addr, port = addr_port(f[1])
+                socks.append((addr, port, int(f[-1]), None))
+        return socks
+
+    if not MACOS and shutil.which("ss"):
+        out = run(["ss", "-ltnpH"])
+        if out is not None:
+            for line in out.splitlines():
+                f = line.split()
+                if len(f) < 4:
+                    continue
+                addr, port = addr_port(f[3])
+                users = re.findall(r'\("([^"]*)",pid=(\d+)', line)
+                if users:
+                    for name, pid in users:
+                        socks.append((addr, port, int(pid), name))
+                else:
+                    socks.append((addr, port, None, None))
+            return socks
+
+    if shutil.which("lsof"):
+        out = run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fpcn"])
+        if out is not None or MACOS:
+            pid = name = None
+            for line in (out or "").splitlines():
+                if line.startswith("p"):
+                    pid = int(line[1:])
+                elif line.startswith("c"):
+                    name = line[1:]
+                elif line.startswith("n"):
+                    addr, port = addr_port(line[1:].split()[0])
+                    socks.append((addr, port, pid, name))
+            return socks
+    warn("cannot list listening sockets (no ss or lsof)")
+    return None
+
+
+def port_holders(port):
+    """[(pid or None, name or None)] listening on TCP port, or None if unknown."""
+    socks = listeners()
+    if socks is None:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return [(None, None)]
+        except OSError:
+            return None
+    seen = []
+    for _, p, pid, name in socks:
+        if p == port and (pid, name) not in seen:
+            seen.append((pid, name))
+    return seen
+
+
+def process_name(pid):
+    if WINDOWS:
+        out = run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"])
+        m = re.match(r'"([^"]+)"', out or "")
+        return m.group(1) if m else None
+    out = run(["ps", "-o", "comm=", "-p", str(pid)])
+    return out.strip() or None if out else None
+
+
+# ---------------------------------------------------------------------------
+# Gathering
+# ---------------------------------------------------------------------------
+
+def config_forwards(exe, gargs, dest):
+    out = run([exe, "-G", *gargs, dest])
+    if out is None:
+        return []
+    return [f for f in map(parse_g_line, out.splitlines()) if f]
+
+
+def describe(pid, cmdline):
+    entry = {"pid": pid, "host": "?", "kind": "unknown", "command_line": cmdline,
+             "forwards": []}
+    if not cmdline:
+        return entry, None
+    m = re.match(r"ssh: (.*?) ?\[mux\]", cmdline)
+    if m:
+        base = re.split(r"[\\/]", m.group(1))[-1]
+        host = base.split("@", 1)[-1] if "@" in base else base
+        entry.update(kind="mux", host=re.sub(r":\d+$", "", host) or "?")
+        return entry, None
+    argv = proc_argv(pid, cmdline)
+    if not argv:
+        return entry, None
+    opts, dest, command = parse_ssh_args(argv[1:])
+    letters = {o for o, _ in opts}
+    entry["host"] = dest or "-"
+    if "N" in letters:
+        entry["kind"] = "tunnel"
+    elif command or letters & {"W", "O", "s", "V", "G", "Q"} or dest is None:
+        entry["kind"] = "other"
+    else:
+        entry["kind"] = "interactive"
+    for o, v in opts:
+        if o in "LRD" and v:
+            f = parse_forward(o, v, "cmdline")
+            if f:
+                entry["forwards"].append(f)
+    query = None
+    if dest and not letters & {"W", "O", "G", "V", "Q"}:
+        gargs = []
+        for o, v in opts:
+            if o in "Fopl" and v is not None:
+                gargs += [f"-{o}", v]
+        exe = argv[0] if os.path.isfile(argv[0]) else ssh_exe()
+        query = (exe, tuple(gargs), dest)
+    return entry, query
+
+
+def same_forward(a, b):
+    return a["type"] == b["type"] and a["port"] == b["port"] and \
+        a["target"] == b["target"] and a["listen"] == b["listen"]
+
+
+def gather():
+    procs = ssh_processes()
+    entries, queries = [], {}
+    for pid, cmdline in procs:
+        entry, query = describe(pid, cmdline)
+        entries.append((entry, query))
+        if query:
+            queries[query] = None
+    if queries:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for q, res in zip(queries, pool.map(lambda q: config_forwards(*q), queries)):
+                queries[q] = res
+    socks = listeners() if procs else []
+    result = []
+    for entry, query in entries:
+        for f in queries.get(query) or []:
+            if not any(same_forward(f, g) for g in entry["forwards"]):
+                entry["forwards"].append(dict(f))
+        if socks is not None:
+            mine = [(a, p) for a, p, pid, _ in socks if pid == entry["pid"]]
+            ports = {p for _, p in mine}
+            explained = set()
+            for f in entry["forwards"]:
+                if f["type"] in "LD":
+                    f["listening"] = f["port"] in ports
+                    explained.add(f["port"])
+            for a, p in mine:
+                if p not in explained:
+                    explained.add(p)
+                    entry["forwards"].append({
+                        "type": "L", "listen": str(p), "port": p, "target": None,
+                        "source": "runtime", "listening": True})
+        result.append(entry)
+    result.sort(key=lambda e: e["pid"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+def forward_text(f):
+    arrow = f" -> {f['target']}" if f["target"] else ""
+    return f"{f['type']} {f['listen']}{arrow}"
+
+
+def forward_status(f):
+    bits = [] if f["source"] == "cmdline" else [f["source"]]
+    if f["listening"] is True:
+        bits.append("listening")
+    elif f["listening"] is False:
+        bits.append("NOT listening")
+    return f"({', '.join(bits)})" if bits else ""
+
+
+def cmd_ls(args):
+    data = gather()
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return 0
+    rows = []
+    for e in data:
+        if not e["forwards"]:
+            rows.append((str(e["pid"]), e["host"], e["kind"], "-", ""))
+        for i, f in enumerate(e["forwards"]):
+            host, kind = (e["host"], e["kind"]) if i == 0 else ("", "")
+            rows.append((str(e["pid"]), host, kind, forward_text(f), forward_status(f)))
+    header = ("PID", "HOST", "KIND", "FORWARDS", "")
+    widths = [max(len(r[c]) for r in rows + [header]) for c in range(4)]
+    for r in [header] + rows:
+        line = "  ".join(r[c].ljust(widths[c]) for c in range(4)) + "  " + r[4]
+        print(line.rstrip())
+    return 0
+
+
+def holder_text(pid, name, entries):
+    for e in entries:
+        if e["pid"] == pid:
+            return f"ssh {e['kind']} to {e['host']} (PID {pid})"
+    if pid is None:
+        return "an unknown process"
+    name = name or process_name(pid)
+    return f"{name} (PID {pid})" if name else f"PID {pid}"
+
+
+def parse_target(host, remote, local):
+    """Return (host, rhost, rport) from the forward arguments."""
+    if remote is None:
+        m = re.match(r"^(.*[^:]):(\d+)$", host)
+        if m and not re.search(r"::|^\[", host):
+            return m.group(1), "127.0.0.1", int(m.group(2))
+        return host, "127.0.0.1", local
+    if remote.isdigit():
+        return host, "127.0.0.1", int(remote)
+    m = re.match(r"^(\[[^\]]+\]|[^:]+):(\d+)$", remote)
+    if not m:
+        raise ValueError(f"REMOTE must be RPORT or RHOST:RPORT, not {remote!r}")
+    return host, strip_brackets(m.group(1)), int(m.group(2))
+
+
+def log_path(local):
+    """Per-user path of the stderr log of the tunnel that forwards `local`."""
+    if WINDOWS:
+        d = os.path.join(tempfile.gettempdir(), "port")
+    else:
+        d = os.path.join(tempfile.gettempdir(), f"port-{os.getuid()}")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    if not WINDOWS and os.stat(d).st_uid != os.getuid():
+        raise OSError(f"{d} belongs to another user")
+    return os.path.join(d, f"forward-{local}.log")
+
+
+def kill_tree(pid):
+    if WINDOWS:
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
+                       creationflags=NO_WINDOW)
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+    for _ in range(30):
+        time.sleep(0.1)
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
+def cmd_forward(args):
+    local = args.local
+    try:
+        host, rhost, rport = parse_target(args.host, args.remote, local)
+    except ValueError as e:
+        print(f"port: {e}", file=sys.stderr)
+        return 2
+    target = hostport(rhost, rport)
+
+    holders = port_holders(local)
+    if holders:
+        entries = gather() if any(pid is not None for pid, _ in holders) else []
+        who = ", ".join(holder_text(pid, name, entries) for pid, name in holders)
+        print(f"port: port {local} is already in use by {who}", file=sys.stderr)
+        return 1
+
+    # ExitOnForwardFailure stays off: a LocalForward in ~/.ssh/config for this
+    # host also applies, and when another session already holds that port, it
+    # would kill the tunnel. Whether LOCAL works is checked below instead.
+    cmd = [ssh_exe(), "-N", "-o", "ExitOnForwardFailure=no", "-o", "ServerAliveInterval=30",
+           "-o", "BatchMode=yes", "-o", "ControlPath=none",
+           "-L", f"{local}:{target}", host]
+    try:
+        path = log_path(local)
+        err = open(path, "w+")
+    except OSError:
+        fd, path = tempfile.mkstemp(prefix=f"port-forward-{local}-", suffix=".log")
+        err = os.fdopen(fd, "w+")
+    kw = {"creationflags": NEW_GROUP | NO_WINDOW} if WINDOWS else {"start_new_session": True}
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=err, **kw)
+    except OSError as e:
+        err.close()
+        print(f"port: cannot start ssh: {e}", file=sys.stderr)
+        return 1
+
+    def stderr_text():
+        err.flush()
+        err.seek(0)
+        return err.read().strip()
+
+    deadline = time.time() + FORWARD_WAIT
+    ok = False
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            break
+        holders = port_holders(local)
+        if holders and any(pid in (proc.pid, None) for pid, _ in holders):
+            ok = True
+            break
+        time.sleep(0.3)
+
+    if not ok:
+        if proc.poll() is None:
+            kill_tree(proc.pid)
+            reason = f"port {local} was not listening after {FORWARD_WAIT} s"
+        else:
+            reason = f"ssh exited with code {proc.returncode}"
+        text = stderr_text()
+        err.close()
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        print(f"port: forward {local} -> {target} via {host} failed: {reason}", file=sys.stderr)
+        for line in text.splitlines():
+            print(f"  {line}", file=sys.stderr)
+        return 1
+
+    notes = [l for l in stderr_text().splitlines() if l.strip()]
+    err.close()
+    print(f"L {local} -> {target} via {host} (PID {proc.pid})")
+    for line in notes:
+        print(f"  ssh: {line}")
+    return 0
+
+
+def cmd_cancel(args):
+    local = args.local
+    entries = gather()
+    tunnels, others = [], []
+    for e in entries:
+        for f in e["forwards"]:
+            if f["port"] != local or f["type"] not in "LD":
+                continue
+            if e["kind"] == "tunnel" and f["source"] == "cmdline" and f["type"] == "L":
+                tunnels.append(e)
+            else:
+                others.append((e, f))
+            break
+
+    for e in tunnels:
+        kill_tree(e["pid"])
+        print(f"stopped tunnel PID {e['pid']} to {e['host']}: "
+              + ", ".join(forward_text(f) for f in e["forwards"] if f["source"] == "cmdline"))
+    if tunnels:
+        try:
+            os.remove(log_path(local))
+        except OSError:
+            pass
+        for _ in range(20):
+            holders = port_holders(local)
+            if not any(pid in [e["pid"] for e in tunnels] for pid, _ in holders or []):
+                break
+            time.sleep(0.25)
+
+    for e, f in others:
+        if e["kind"] == "interactive":
+            print(f"port: port {local} comes from the interactive ssh session to {e['host']} "
+                  f"(PID {e['pid']}, {f['source']}); not killing it.\n"
+                  f"  Remove it in that session: press Enter, type ~C, "
+                  f"then -K{f['type']} {local} and Enter.", file=sys.stderr)
+        elif e["kind"] == "tunnel":
+            main = ", ".join(str(g["port"]) for g in e["forwards"] if g["source"] == "cmdline")
+            print(f"port: port {local} is a {f['source']} forward of the tunnel to {e['host']} "
+                  f"(PID {e['pid']}); stop the whole tunnel with: port cancel {main or '?'}",
+                  file=sys.stderr)
+        else:
+            print(f"port: port {local} belongs to ssh PID {e['pid']} ({e['kind']}, {e['host']}), "
+                  f"not to a tunnel; not killing it.", file=sys.stderr)
+
+    if not tunnels and not others:
+        holders = port_holders(local)
+        if holders:
+            who = ", ".join(holder_text(pid, name, entries) for pid, name in holders)
+            print(f"port: port {local} is not forwarded by ssh; it is used by {who}",
+                  file=sys.stderr)
+        else:
+            print(f"port: nothing forwards port {local}", file=sys.stderr)
+        return 1
+    return 0 if tunnels else 1
+
+
+def port_arg(s):
+    if not s.isdigit() or not 0 < int(s) < 65536:
+        raise argparse.ArgumentTypeError(f"not a port number: {s}")
+    return int(s)
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        prog="port",
+        description="List ssh client connections and their port forwards, start and stop tunnels.",
+        epilog=__doc__.split("\n\n", 2)[2], formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd")
+
+    p = sub.add_parser("ls", help="list ssh connections and their forwards (default)")
+    p.add_argument("--json", action="store_true", help="print JSON (fields: see `port -h`)")
+    p.set_defaults(func=cmd_ls)
+
+    p = sub.add_parser(
+        "forward", help="start a detached tunnel: local LOCAL -> REMOTE seen from HOST",
+        description="Start a detached, windowless `ssh -N -L LOCAL:RHOST:RPORT HOST` (BatchMode, "
+                    "so it fails instead of prompting), and wait until LOCAL listens.")
+    p.add_argument("local", type=port_arg, metavar="LOCAL", help="local port")
+    p.add_argument("host", metavar="HOST", help="ssh destination; HOST:RPORT is short for HOST RPORT")
+    p.add_argument("remote", nargs="?", metavar="REMOTE",
+                   help="RPORT or RHOST:RPORT as seen from the server (default: 127.0.0.1:LOCAL)")
+    p.set_defaults(func=cmd_forward)
+
+    p = sub.add_parser(
+        "cancel", help="stop the tunnel that forwards LOCAL",
+        description="Kill the `ssh -N` tunnel whose -L forwards LOCAL. Interactive sessions are "
+                    "never killed; remove their forward with the escape sequence ~C, -KL LOCAL.")
+    p.add_argument("local", type=port_arg, metavar="LOCAL", help="local port")
+    p.set_defaults(func=cmd_cancel)
+
+    argv = sys.argv[1:]
+    if not argv or argv[0] not in ("ls", "forward", "cancel", "-h", "--help"):
+        argv = ["ls", *argv]
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

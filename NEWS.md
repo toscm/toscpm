@@ -6,6 +6,17 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.66.0
+
+- New script `bin/port` (all OSes): `port ls` lists the ssh client connections of this machine and the ports each one forwards, with their source (command line, `~/.ssh/config` or added at runtime) and whether they really listen.
+  `port forward 8765 myserver` starts a detached tunnel from local port 8765 to 127.0.0.1:8765 on myserver, and `port cancel 8765` stops it again.
+  `cancel` only kills `ssh -N` tunnels; for a forward of an interactive session it explains how to remove it there with `~C`, `-KL 8765`.
+  `port ls --json` prints the same as JSON for other tools (fields in `port -h`).
+  Tunnels use BatchMode, so they need a running ssh-agent with your key loaded.
+
+- `toscpm link` installs scripts from `bin/` on Windows too: as a `<name>.bat` shim for cmd and PowerShell plus an extensionless sh shim for Git Bash, like the `toscpm` launchers, because Windows cannot run a script through a symlink.
+  `toscpm check` verifies these shims.
+
 ## 1.65.0
 
 - Extended keys: apps can tell `Ctrl+Shift+P` from `Ctrl+P`, `Shift+Enter` from `Enter` and so on, also through ssh and tmux.

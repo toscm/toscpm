@@ -1036,11 +1036,19 @@ def link_dotfiles(cur_os):
 
 # (command_name, repo_source_relative, os_filter_or_None)
 # Executable helpers symlinked into ~/.local/bin so they land on PATH.
+# On Windows, which cannot run a script through a symlink, they get the same
+# shims as toscpm itself (see bin_shim_targets). Those must be Python scripts.
 BIN_SCRIPTS = [
     ("code",      "bin/code",      "linux"),
     ("deepsleep", "bin/deepsleep", "macos"),
+    ("port",      "bin/port",      None),
     ("ptree",     "bin/ptree",     "linux"),
 ]
+
+
+def bin_shim_targets(name):
+    """[(path, kind)] of the Windows shims for bin script `name`."""
+    return [(LOCAL_BIN / f"{name}.bat", "bat"), (LOCAL_BIN / name, "sh")]
 
 
 def check_bin(cur_os):
@@ -1048,8 +1056,16 @@ def check_bin(cur_os):
     for name, repo_rel, target_os in BIN_SCRIPTS:
         if target_os is not None and target_os != cur_os:
             continue
-        link = LOCAL_BIN / name
         source = (REPO_DIR / repo_rel).resolve()
+        if cur_os == "windows":
+            stale = [t.name for t, kind in bin_shim_targets(name)
+                     if read_shim(t) != shim_content(kind, source)]
+            if stale:
+                broken.append((name, "shim missing or outdated: " + ", ".join(stale)))
+            else:
+                ok += 1
+            continue
+        link = LOCAL_BIN / name
         if is_linked(link, source):
             ok += 1
         else:
@@ -1077,6 +1093,18 @@ def link_bin(cur_os):
 
         if not source.exists():
             print(f"  skip {name} (source missing)")
+            continue
+        if cur_os == "windows":
+            for target, kind in bin_shim_targets(name):
+                content = shim_content(kind, source.resolve())
+                if read_shim(target) == content:
+                    print(f"  {OK}    {BIN_DISP}/{target.name}")
+                    continue
+                if target.exists() or target.is_symlink():
+                    target.replace(target.with_name(target.name + ".bak"))
+                # newline="\n": /bin/sh chokes on the CRLF of the sh shim.
+                target.write_text(content, newline="\n")
+                print(f"  shim {BIN_DISP}/{target.name} -> {repo_rel}")
             continue
         if is_linked(link, source):
             print(f"  {OK}    {BIN_DISP}/{name}")

@@ -51,10 +51,16 @@ to see their system commands.
 
 Executables in `bin/` are symlinked into `~/.local/bin` by `toscpm link`,
 so they land on PATH. Each is linked only on the OS it targets.
+Windows cannot run a script through a symlink, so there `toscpm link` installs two shims per script instead, `<name>.bat` (cmd, PowerShell) and an extensionless sh script (Git Bash).
 
 - `deepsleep` (macOS) keeps a clamshell MacBook asleep with an external
   display/mouse attached by re-issuing `pmset sleepnow` every 10 minutes;
   stop it with Ctrl-C to actually use the machine.
+- `port` (all OSes) lists the ssh client connections of this machine and the ports each one forwards, with their source (command line, `~/.ssh/config` or added at runtime) and whether they really listen.
+  `port forward 8765 myserver` starts a detached tunnel from local port 8765 to 127.0.0.1:8765 on myserver (`port forward LOCAL HOST [RPORT | RHOST:RPORT]`), and `port cancel 8765` stops it again.
+  `cancel` only kills `ssh -N` tunnels; for a forward of an interactive session it explains how to remove it there (`~C`, then `-KL 8765`).
+  `port ls --json` prints the same as JSON for other tools; `port -h` documents the fields.
+  Tunnels use BatchMode, so they need key authentication via a running ssh-agent; otherwise they fail with ssh's error instead of prompting.
 - `ptree` (Linux) shows processes as a memory-sorted tree, grouped by user
   (system users hidden by default). Flags: `-u` (current user only), `-a`
   (include system/service users), `-L N` (max depth), `-w N` (command
