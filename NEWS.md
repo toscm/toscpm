@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.61.0
+
+- Neovim: GitHub Copilot via LazyVim's `ai.copilot` extra, with inline ghost-text suggestions as in VS Code (`vim.g.ai_cmp = false`).
+  `Alt+\` asks for a suggestion, `Tab` accepts it, `Alt+]`/`Alt+[` cycle through alternatives and `Ctrl+]` dismisses it.
+  In Markdown, plain text and git commit messages Copilot only suggests on `Alt+\`, like the completion menu, which there only opens on `Ctrl+Space`.
+  Sign in once with `:Copilot auth`.
+
+- Neovim: `Alt+\` no longer opens the completion menu; use `Ctrl+Space`.
+
 ## 1.60.0
 
 - Neovim: the Visual selection is a solid blue with white text (`#1f6feb` in the dark theme, `#0969da` in the light one) instead of github-theme's faint tint, which was barely visible.

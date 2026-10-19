@@ -27,6 +27,12 @@ if vim.fn.has("win32") == 1 then
   vim.cmd.language("ctype", "en_US.UTF-8")
 end
 
+-- Copilot (the ai.copilot extra, see lua/plugins/completion.lua) shows its
+-- suggestions as inline ghost text accepted with <Tab>, as in VS Code,
+-- instead of as items in blink.cmp's completion menu. This also turns off
+-- blink's own ghost text preview of the selected menu item.
+vim.g.ai_cmp = false
+
 -- No plugin in this config is a remote plugin written in Node, Perl, Python
 -- or Ruby, so the corresponding providers are never used. Disabling them
 -- stops :checkhealth from warning about the missing host packages and skips
