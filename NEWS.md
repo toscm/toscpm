@@ -6,6 +6,25 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.67.0
+
+- `nvim`: Ctrl+Alt+Up/Down add a cursor above/below in Insert mode too, and typing continues at all cursors.
+
+- `nvim`: the first Shift+arrow only starts Visual mode on the character under the cursor; further Shift+arrows extend the selection.
+  From Insert mode the selection starts at the character after the cursor, and Esc, Backspace or Delete return to Insert mode.
+
+- `nvim`: the cursor is a bar in Visual mode, so the character under it shows as selected.
+  With the block cursor it looked unselected, so Backspace/Delete seemed to delete one character more than the selection.
+
+## 1.67.0
+
+Two changes that had only been committed on one machine (r4) and are brought over here.
+
+- `tmux.conf`: `terminal-features ",xterm*:RGB"` tells tmux that the outer terminal can do 24-bit colour, so tmux no longer reduces nvim's colours to 256.
+
+- New tool `tree-sitter` (the tree-sitter CLI), which nvim-treesitter needs to build parsers.
+  On Linux it is built with cargo, because the release binaries need glibc 2.39 (Ubuntu 24.04); on macOS it comes from Homebrew's `tree-sitter-cli`, on Windows from winget.
+
 ## 1.66.0
 
 - New script `bin/port` (all OSes): `port ls` lists the ssh client connections of this machine and the ports each one forwards, with their source (command line, `~/.ssh/config` or added at runtime) and whether they really listen.

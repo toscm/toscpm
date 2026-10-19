@@ -279,6 +279,18 @@ export PATH="$D/stub:$PATH"
 make -j"$(nproc)" >/dev/null
 make install >/dev/null"""
 
+# tree-sitter CLI, needed by nvim-treesitter (main branch) to build parsers.
+# The GitHub release binaries are linked against glibc 2.39 (Ubuntu 24.04), so
+# they fail on older distros (Ubuntu 22.04 has 2.35) and no musl build exists;
+# mason.nvim installs exactly that binary, which is why it is built from
+# source with cargo here instead. cargo puts it into ~/.cargo/bin; the symlink
+# makes it visible in ~/.local/bin where toscpm verifies no-admin tools.
+TS_INSTALL = (
+    '"$(command -v cargo || echo "$HOME/.cargo/bin/cargo")" install --locked tree-sitter-cli && '
+    'mkdir -p "$HOME/.local/bin" && '
+    'ln -sf "$HOME/.cargo/bin/tree-sitter" "$HOME/.local/bin/tree-sitter"'
+)
+
 
 TOOLS = [
     Tool("git", "git",
@@ -440,6 +452,12 @@ TOOLS = [
     Tool("cc", {"default": "cc", "windows": "gcc"},
          {"macos": "xcode-select --install", "linux": "sudo apt install -y build-essential",
           "windows": "winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e"}),
+    # Homebrew's tree-sitter formula is only the library; the CLI is
+    # tree-sitter-cli.
+    Tool("tree-sitter", "tree-sitter",
+         {"macos": "brew install tree-sitter-cli", "linux": TS_INSTALL,
+          "windows": "winget install tree-sitter.tree-sitter-cli"},
+         Script(TS_INSTALL)),
     # ffmpeg's GitHub builds carry a build hash in every asset name, so there is
     # no template a GhBin recipe could fill in. The no-admin path therefore uses
     # the johnvansickle static build: one stable URL, no shared libraries.
