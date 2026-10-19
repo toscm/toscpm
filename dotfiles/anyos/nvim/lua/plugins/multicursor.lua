@@ -4,7 +4,8 @@
 --   Ctrl+D              select the word under the cursor; pressed again on a
 --                       selection, add a cursor on its next match
 --   Ctrl+Shift+L        add a cursor on every match of the word/selection
---   Ctrl+Alt+Up/Down    add a cursor on the line above/below
+--   Ctrl+Alt+Up/Down    add a cursor on the line above/below (also in
+--                       Insert mode, where you keep typing at all cursors)
 --   Alt+Click           add or remove a cursor
 --   Esc                 back to a single cursor
 --
@@ -36,6 +37,10 @@ return {
       set({ "n", "x" }, "<C-A-Down>", function()
         mc.lineAddCursor(1)
       end, { desc = "Add Cursor Below" })
+      -- multicursor.nvim actions do not run in Insert mode, so these run as
+      -- a one-off Normal-mode command (Ctrl+O) and Insert mode continues.
+      set("i", "<C-A-Up>", '<C-o><Cmd>lua require("multicursor-nvim").lineAddCursor(-1)<CR>', { desc = "Add Cursor Above" })
+      set("i", "<C-A-Down>", '<C-o><Cmd>lua require("multicursor-nvim").lineAddCursor(1)<CR>', { desc = "Add Cursor Below" })
       set("n", "<A-LeftMouse>", mc.handleMouse, { desc = "Add/Remove Cursor" })
       set("n", "<A-LeftDrag>", mc.handleMouseDrag)
       set("n", "<A-LeftRelease>", mc.handleMouseRelease)

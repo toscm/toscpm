@@ -106,6 +106,16 @@ end)
 vim.keymap.set("x", "<BS>", '"_d', { desc = "Delete Selection" })
 vim.keymap.set("x", "<Del>", '"_d', { desc = "Delete Selection" })
 
+-- The first Shift+arrow only starts Visual mode on the character under the
+-- cursor (the bar cursor of Visual mode, see 'guicursor' in options.lua,
+-- shows it as selected); further Shift+arrows extend the selection
+-- ('keymodel' "startsel"). In Insert mode the selection starts at the
+-- character after the cursor and Esc returns to Insert mode.
+for _, key in ipairs({ "<S-Left>", "<S-Right>", "<S-Up>", "<S-Down>" }) do
+  vim.keymap.set("n", key, "v", { desc = "Start Selection" })
+  vim.keymap.set("i", key, "<C-o>v", { desc = "Start Selection" })
+end
+
 -- Esc in Normal mode also dismisses all notifications (see
 -- lua/plugins/notifier.lua), on top of what LazyVim's Esc does: clear the
 -- search highlight and stop the active snippet. The hiding is scheduled

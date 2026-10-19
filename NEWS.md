@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.68.0
+
+- Neovim: the first Shift+arrow starts Visual mode on the character under the cursor, further Shift+arrows extend the selection.
+  In Insert mode the selection starts at the character after the cursor, and Esc returns to Insert mode.
+
+- Neovim: a bar cursor in Visual mode (`guicursor`), so the character under it shows the selection highlight; with the block cursor it looked unselected although it is part of the selection.
+
+- Neovim: Ctrl+Alt+Up/Down add a cursor on the line above/below in Insert mode too, where you keep typing at all cursors.
+
 ## 1.67.0
 
 - `nvim`: Ctrl+Alt+Up/Down add a cursor above/below in Insert mode too, and typing continues at all cursors.
