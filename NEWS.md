@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.64.0
+
+- Neovim: the `F1` command palette (now in `lua/config/palette.lua`) also lists `:` commands, so e.g. "sort lines" finds `:sort`.
+  Built-in commands are described by the one-line summaries of Neovim's command index (`:help ex-cmd-index`), plugin commands by their own description or, where they have none, by a description from the config.
+  Choosing a built-in command puts it on the command line (with the Visual range from Visual mode) for adding arguments; plugin commands without arguments run directly.
+
+- Neovim: the palette shows description and keys or command as two columns, 80% and 20% of the window, with a pane below the list that shows the selected entry in full and wrapped.
+
 ## 1.63.0
 
 - Neovim: the `F1` command palette shows each keymap as description and keys only, without mode, right-hand side and source file, in a centred VS Code-style window without preview.
