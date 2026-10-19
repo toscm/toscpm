@@ -21,6 +21,13 @@
 -- filetypes. <A-\> asks for a suggestion, as in VS Code; <Tab> accepts it,
 -- <A-]>/<A-[> cycle through alternatives and <C-]> dismisses it. Sign in
 -- once with :Copilot auth.
+--
+-- copilot.lua labels its requests with the buffer's changedtick as document
+-- version, but Neovim 0.11's LSP client announces a freshly opened buffer
+-- as version 0 and only switches to changedtick on the first edit. Until
+-- then the server sees a version mismatch and silently returns no
+-- suggestions, so <A-\> did nothing in a file not yet edited. The wrapper
+-- below sends the version the LSP client last sent instead.
 local prose = { "markdown", "text", "gitcommit" }
 
 return {
@@ -52,6 +59,16 @@ return {
           vim.b.copilot_suggestion_auto_trigger = false
         end,
       })
+    end,
+    config = function(_, opts)
+      require("copilot").setup(opts)
+      local util = require("copilot.util")
+      local get_doc = util.get_doc
+      util.get_doc = function()
+        local doc = get_doc()
+        doc.version = vim.lsp.util.buf_versions[vim.api.nvim_get_current_buf()] or doc.version
+        return doc
+      end
     end,
     keys = {
       {

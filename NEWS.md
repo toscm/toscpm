@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.61.1
+
+- Neovim: `Alt+\` now shows a Copilot suggestion in a file that has not been edited since it was opened.
+  copilot.lua labelled its requests with the buffer's changedtick, while Neovim 0.11's LSP client had announced the buffer as version 0, so the server saw a version mismatch and returned nothing.
+  The config now sends the version the LSP client last sent.
+
 ## 1.61.0
 
 - Neovim: GitHub Copilot via LazyVim's `ai.copilot` extra, with inline ghost-text suggestions as in VS Code (`vim.g.ai_cmp = false`).
