@@ -29,6 +29,8 @@ toscpm update           # pull the latest toscpm (fast-forward only), then link 
 
 `toscpm check` reports tools (installed?), dotfiles (symlinked?), self
 (`toscpm` on PATH?), and repo (clean? pushed? behind upstream?).
+Tools with a `min_version` (nvim, tmux, the terminal emulators) are also reported when they are too old for the dotfiles, and `toscpm install` updates them.
+Terminal emulators (Windows Terminal, iTerm2, Ghostty) are only tracked on a machine with a desktop, not on a headless server or in an ssh session.
 
 `toscpm update` brings a machine up to date: it pulls the repo, links the dotfiles and runs `check`, which lists any tools that are now missing.
 Install those with `toscpm install` when convenient.

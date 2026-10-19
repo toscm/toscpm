@@ -213,3 +213,24 @@ map("i", "<C-S-z>", "<C-o><C-r>", { desc = "Redo" })
 map("x", "<C-z>", "<Esc>u", { desc = "Undo" })
 map("n", "<C-a>", "ggVG", { desc = "Select All" })
 map({ "i", "x" }, "<C-a>", "<Esc>ggVG", { desc = "Select All" })
+
+-- :KeyTest shows each key the way Neovim receives it, e.g. <C-S-P>, without
+-- running any mapping; q quits. Whether Ctrl+Shift+P arrives as <C-S-P> or
+-- only as <C-P> shows whether extended keys work through every layer
+-- (terminal, ssh, tmux), see the extended keys in tmux.conf.
+vim.api.nvim_create_user_command("KeyTest", function()
+  local seen = {}
+  while true do
+    vim.api.nvim_echo({ { "KeyTest (q quits): " .. table.concat(seen, " ") } }, false, {})
+    vim.cmd.redraw()
+    local key = vim.fn.keytrans(vim.fn.getcharstr())
+    if key == "q" then
+      break
+    end
+    table.insert(seen, key)
+    if #seen > 12 then
+      table.remove(seen, 1)
+    end
+  end
+  vim.api.nvim_echo({ { "" } }, false, {})
+end, { desc = "Show the keys Neovim receives (q quits)" })

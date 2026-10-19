@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -194,6 +195,18 @@ class Tool:
     user_linux: object = None # GhBin|GlBin|GhTree|NodeDist|Script|None (admin-only)
     user_windows: object = None  # GhZip|None (None -> install via winget)
     version_flag: str = "--version"
+    # Oldest version that does what the dotfiles ask of the tool; `check`
+    # reports an older one and `install` updates it.
+    min_version: str = None
+    # os -> shell command printing the version, for tools whose binary has no
+    # usable version flag (GUI apps). Defaults to `<bin> <version_flag>`.
+    version_cmd: dict = field(default_factory=dict)
+    # os -> path of an app bundle that counts as installed, for apps that put
+    # no command on PATH (macOS .app).
+    app_path: dict = field(default_factory=dict)
+    # Only wanted on a machine with a desktop (a terminal emulator), so not
+    # reported or installed on a headless server or in an ssh session.
+    gui: bool = False
 
 
 RUST_MUSL = {
@@ -296,7 +309,10 @@ TOOLS = [
          {"macos": "brew install neovim", "linux": "sudo apt install -y neovim", "windows": "winget install Neovim.Neovim"},
          GhTree("neovim/neovim",
                 {"x86_64": "nvim-linux-x86_64.tar.gz", "aarch64": "nvim-linux-arm64.tar.gz"},
-                versioned=False)),
+                versioned=False),
+         # 0.10: asks the terminal for the kitty keyboard protocol and falls
+         # back to modifyOtherKeys, so Ctrl+Shift+letter reaches keymaps.
+         min_version="0.10"),
     Tool("micro", "micro",
          {"macos": "brew install micro", "linux": "sudo apt install -y micro", "windows": "winget install zyedidia.micro"},
          GhBin("zyedidia/micro",
@@ -306,9 +322,29 @@ TOOLS = [
     # No windows entry: tmux has no native Windows build (it needs a POSIX
     # terminal layer), so on Windows it is used inside WSL, where the linux
     # recipe applies. The winget hits are third-party repackagings, not upstream.
+    # 3.5: extended-keys-format csi-u, used by the extended keys in tmux.conf.
     Tool("tmux", "tmux",
          {"macos": "brew install tmux", "linux": "sudo apt install -y tmux"},
-         Script(TMUX_BUILD)),
+         Script(TMUX_BUILD),
+         version_flag="-V", min_version="3.5"),
+    # Terminal emulators, one per OS, each speaking the kitty keyboard protocol
+    # (which carries every modifier, see the extended keys in tmux.conf):
+    # Windows Terminal from 1.25, iTerm2 from 3.5, Ghostty from 1.0. They only
+    # matter on a machine with a desktop (gui=True). Windows Terminal's wt.exe
+    # opens a window for --version, so its version comes from the app package;
+    # iTerm2 puts no command on PATH, so it is found as an app bundle.
+    Tool("wt", "wt",
+         {"windows": "winget install Microsoft.WindowsTerminal"},
+         version_cmd={"windows": 'powershell -NoProfile -Command "(Get-AppxPackage Microsoft.WindowsTerminal).Version"'},
+         min_version="1.25", gui=True),
+    Tool("iterm2", "iterm2",
+         {"macos": "brew install --cask iterm2"},
+         version_cmd={"macos": "defaults read /Applications/iTerm.app/Contents/Info.plist CFBundleShortVersionString"},
+         app_path={"macos": "/Applications/iTerm.app"},
+         min_version="3.5", gui=True),
+    Tool("ghostty", "ghostty",
+         {"linux": "sudo snap install ghostty --classic"},
+         min_version="1.0", gui=True),
     Tool("zoxide", "zoxide",
          {"macos": "brew install zoxide", "linux": "curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh", "windows": "winget install ajeetdsouza.zoxide"},
          Script("curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh")),
@@ -440,7 +476,61 @@ def bin_candidates(tool, cur_os):
 
 
 def installed(tool, cur_os):
+    if cur_os in tool.app_path:
+        return Path(tool.app_path[cur_os]).exists()
     return any(shutil.which(c) for c in bin_candidates(tool, cur_os))
+
+
+def has_desktop(cur_os):
+    if os.environ.get("SSH_CONNECTION"):
+        return False
+    if cur_os == "linux":
+        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    return True
+
+
+def wanted(tool, cur_os):
+    """Whether the tool is tracked on this machine at all."""
+    return bool(tool.admin.get(cur_os)) and (not tool.gui or has_desktop(cur_os))
+
+
+def version_command(tool, cur_os, binary=None):
+    if cur_os in tool.version_cmd:
+        return tool.version_cmd[cur_os]
+    return f"{binary or bin_candidates(tool, cur_os)[0]} {tool.version_flag}"
+
+
+def parse_version(text):
+    """First "X.Y[.Z]" in a version banner as a tuple of ints, or None.
+
+    Letter suffixes (tmux 3.5a) are dropped: they mark bug-fix releases.
+    """
+    m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", text or "")
+    return tuple(int(g) for g in m.groups() if g is not None) if m else None
+
+
+def installed_version(tool, cur_os):
+    """(parsed version tuple or None, first line of the version output)."""
+    for b in bin_candidates(tool, cur_os):
+        if cur_os in tool.version_cmd or shutil.which(b):
+            try:
+                res = subprocess.run(version_command(tool, cur_os, b), shell=True,
+                                     capture_output=True, text=True, timeout=20)
+            except subprocess.TimeoutExpired:
+                return None, ""
+            out = (res.stdout or res.stderr).strip()
+            return parse_version(out), out.splitlines()[0] if out else ""
+    return None, ""
+
+
+def too_old(tool, cur_os):
+    """The installed version string if it is below min_version, else None."""
+    if not tool.min_version or not installed(tool, cur_os):
+        return None
+    ver, line = installed_version(tool, cur_os)
+    if ver is not None and ver < parse_version(tool.min_version):
+        return ".".join(map(str, ver))
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -601,7 +691,8 @@ def build_plan(tool, cur_os, t):
             return {"status": "unavailable"}
         # winget/brew install onto the system PATH, not ~/.local/bin, so verify
         # by resolving the tool through PATH rather than a fixed location.
-        verify = ("Verifying", f"{primary} {tool.version_flag}", f"{primary} {tool.version_flag}")
+        vcmd = version_command(tool, cur_os)
+        verify = ("Verifying", vcmd, vcmd)
         return {"status": "ok", "version": None, "steps": [("Installing", cmd, cmd), verify]}
 
     if tool.user_linux is None:
@@ -668,7 +759,8 @@ def select_targets(names, do_all, cur_os):
         return targets
     if do_all:
         return list(TOOLS)
-    return [t for t in TOOLS if t.admin.get(cur_os) and not installed(t, cur_os)]
+    return [t for t in TOOLS
+            if wanted(t, cur_os) and (not installed(t, cur_os) or too_old(t, cur_os))]
 
 
 def show_admin_commands(targets, cur_os):
@@ -678,7 +770,8 @@ def show_admin_commands(targets, cur_os):
         if not cmd:
             continue
         for prefix in ("brew install ", "sudo apt install -y ", "winget install "):
-            if cmd.startswith(prefix):
+            # A flag (brew's --cask) would apply to every package after it.
+            if cmd.startswith(prefix) and not cmd[len(prefix):].startswith("-"):
                 groups.setdefault(prefix.rstrip(), []).append(cmd[len(prefix):])
                 break
         else:
@@ -774,20 +867,28 @@ def install(names, do_all, dry, admin, cur_os):
 # ---------------------------------------------------------------------------
 
 def check_tools(cur_os):
-    installed_n, missing = 0, []
+    installed_n, missing, old = 0, [], []
     for tool in TOOLS:
-        if not tool.admin.get(cur_os):
+        if not wanted(tool, cur_os):
             continue
         if installed(tool, cur_os):
             installed_n += 1
+            ver = too_old(tool, cur_os)
+            if ver:
+                old.append(f"{tool.name} {ver} < {tool.min_version}")
         else:
             missing.append(tool.name)
 
-    if not missing:
+    if not missing and not old:
         print(f"{OK} Tools      {installed_n} installed")
     else:
-        print(f"{FAIL} Tools      {installed_n} installed, {len(missing)} missing: {', '.join(missing)}")
-    return missing
+        parts = [f"{installed_n} installed"]
+        if missing:
+            parts.append(f"{len(missing)} missing: {', '.join(missing)}")
+        if old:
+            parts.append(f"{len(old)} too old: {', '.join(old)}")
+        print(f"{FAIL} Tools      {', '.join(parts)}")
+    return missing + old
 
 
 # ---------------------------------------------------------------------------

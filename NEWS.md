@@ -6,6 +6,24 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.65.0
+
+- Extended keys: apps can tell `Ctrl+Shift+P` from `Ctrl+P`, `Shift+Enter` from `Enter` and so on, also through ssh and tmux.
+  Terminals send `Ctrl+letter` as a single control byte with no room for Shift; extended keys are longer sequences that carry every modifier.
+
+- `tmux.conf`: `extended-keys on` with `extended-keys-format csi-u` (tmux 3.5 or newer; older tmux skips the block).
+  tmux asks the outer terminal for modifyOtherKeys and, for Windows Terminal, which only speaks it, for the kitty keyboard protocol.
+  Esc and the keypad keys, which arrive in kitty mode as sequences tmux does not decode, are declared as user keys.
+  Apps that did not ask for extended keys, like a shell, still get the plain control bytes.
+
+- New tools `wt` (Windows Terminal, at least 1.25), `iterm2` (macOS, at least 3.5) and `ghostty` (Linux), the terminal emulators with the kitty keyboard protocol.
+  They are only tracked on a machine with a desktop, not on a headless server or in an ssh session.
+
+- `toscpm check` reports tools older than their new `min_version` (nvim 0.10, tmux 3.5 and the terminals), and `toscpm install` updates them.
+  tmux's version is now read with `tmux -V`.
+
+- Neovim: `:KeyTest` shows each key as Neovim receives it, e.g. `<C-S-P>`, without running mappings, to check that extended keys come through.
+
 ## 1.64.0
 
 - Neovim: the `F1` command palette (now in `lua/config/palette.lua`) also lists `:` commands, so e.g. "sort lines" finds `:sort`.
