@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.63.0
+
+- Neovim: the `F1` command palette shows each keymap as description and keys only, without mode, right-hand side and source file, in a centred VS Code-style window without preview.
+  It lists only keymaps that have a description, matches on description and keys alone, and shows the keymaps of the mode it was opened from (Visual ones from Visual mode, Normal ones otherwise).
+
 ## 1.62.0
 
 - Neovim: `Alt+\` also works in Normal mode: it starts Insert mode after the cursor (like `a`) and asks Copilot for a suggestion.

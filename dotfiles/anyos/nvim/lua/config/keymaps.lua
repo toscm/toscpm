@@ -7,8 +7,45 @@
 -- otherwise opens :help) and <leader>p make it quicker to reach. VS Code's
 -- Ctrl+Shift+P is not used: terminals send Ctrl+Shift+letter as plain
 -- Ctrl+letter, so it would arrive as Ctrl+P and open a file instead.
+--
+-- Unlike LazyVim's picker it lists only keymaps that have a description, as
+-- "description   keys" without rhs, mode or source file, and matches only
+-- on description and keys. It shows the keymaps of the mode it is opened
+-- from: Visual ones from Visual mode (reselecting the selection before
+-- running one), Normal ones otherwise.
 local function palette()
-  Snacks.picker.keymaps()
+  local visual = vim.fn.mode():match("^[vV\22]") ~= nil
+  local seen = {}
+  Snacks.picker.keymaps({
+    title = "Command Palette",
+    layout = { preset = "vscode" },
+    modes = visual and { "x" } or { "n" },
+    transform = function(item)
+      local k = item.item
+      local lhs = Snacks.util.normkey(k.lhs)
+      if not k.desc or k.desc == "" or seen[lhs] then
+        return false
+      end
+      seen[lhs] = true
+      item.lhs = lhs
+      item.text = k.desc .. " " .. lhs
+    end,
+    format = function(item)
+      return {
+        { Snacks.picker.util.align(item.item.desc, 50) },
+        { " " },
+        { item.lhs, "SnacksPickerKeymapLhs" },
+      }
+    end,
+    confirm = function(picker, item)
+      picker:close()
+      if item then
+        vim.schedule(function()
+          vim.api.nvim_input((visual and "gv" or "") .. item.item.lhs)
+        end)
+      end
+    end,
+  })
 end
 vim.keymap.set({ "n", "v", "i" }, "<F1>", palette, { desc = "Command Palette" })
 vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
