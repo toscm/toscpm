@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.73.0
+
+- Neovim and tmux: Alt+Left/Right move between nvim windows and tmux panes alike, through the smart-splits.nvim plugin and its tmux backend.
+  Inside nvim they go to the window on the left/right (e.g. the file explorer) and, past the last window, on to the next tmux pane.
+
+- Neovim and tmux: Alt+Up/Down stay Move Line Up/Down in nvim; tmux now passes them to a pane running nvim instead of switching panes.
+  Ctrl+J/K go to the nvim window below/above, as before, and now on to the tmux pane below/above.
+
 ## 1.72.0
 
 - Neovim: Ctrl+Left/Right and Ctrl+H/L move by word, as Ctrl+Left/Right do in VS Code.
