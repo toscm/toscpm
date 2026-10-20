@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.72.0
+
+- Neovim: Ctrl+Left/Right and Ctrl+H/L move by word, as Ctrl+Left/Right do in VS Code.
+  LazyVim had Ctrl+Left/Right resize the window and Ctrl+H/L go to the window on the left/right; Ctrl+W h/l still do that.
+  In Insert mode Ctrl+H stays Delete Word Backwards.
+
+- tmux: any key without a binding in move mode (Ctrl+B g) now leaves it.
+  Before, such a key, and Esc whenever the pane was running nvim, dropped back to normal mode but left the orange status bar behind, so move mode looked stuck.
+
 ## 1.71.1
 
 - `port ls`: host headings are bold green instead of blue, and an empty line precedes and ends the output, so it stands apart from the prompt.

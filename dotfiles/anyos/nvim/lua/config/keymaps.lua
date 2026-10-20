@@ -158,6 +158,17 @@ map("n", "<C-Del>", function()
   end
 end, { desc = "Delete Word" })
 
+-- Ctrl+Left/Right and Ctrl+H/L move by word (b / w), as Ctrl+Left/Right do
+-- in VS Code. LazyVim had Ctrl+Left/Right resize the window and Ctrl+H/L go
+-- to the window on the left/right; Ctrl+W h/l still do that. In Insert mode
+-- Ctrl+Left/Right already move by word, Ctrl+L follows them and Ctrl+H stays
+-- Delete Word Backwards (Ctrl+Backspace in Windows Terminal, see above).
+map({ "n", "x" }, "<C-Left>", "b", { desc = "Word Backwards" })
+map({ "n", "x" }, "<C-Right>", "w", { desc = "Word Forwards" })
+map({ "n", "x" }, "<C-h>", "b", { desc = "Word Backwards" })
+map({ "n", "x" }, "<C-l>", "w", { desc = "Word Forwards" })
+map("i", "<C-l>", "<C-Right>", { desc = "Word Forwards" })
+
 -- Ctrl+/ toggles a comment (gcc / gc); terminals send it as Ctrl+_ too.
 -- LazyVim had it open the terminal, which moves to Ctrl+` (and stays on
 -- <leader>ft); inside the terminal Ctrl+/ still hides it again.
