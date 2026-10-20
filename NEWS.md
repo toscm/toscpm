@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.69.0
+
+- Neovim: `lazy-lock.json` is no longer tracked; each machine keeps its own, which lazy.nvim writes on every plugin install and update.
+  Tracked, it showed up as a local change after every `:Lazy update` and blocked `toscpm update`.
+  Plugins are no longer pinned to the same commits on every machine; `:Lazy update` brings a machine to the latest versions.
+  Pulling this release deletes the file from the clone on other machines; lazy.nvim writes it again on the next plugin install or update.
+
 ## 1.68.0
 
 - Neovim: the first Shift+arrow starts Visual mode on the character under the cursor, further Shift+arrows extend the selection.

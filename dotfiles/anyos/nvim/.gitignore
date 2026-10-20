@@ -6,3 +6,7 @@ debug
 foo.*
 *.log
 data
+# Plugin versions are not pinned: each machine keeps its own lazy-lock.json,
+# which lazy.nvim writes on every install and update. Tracked, it showed up as
+# a local change after every :Lazy update and blocked `toscpm update`.
+lazy-lock.json
