@@ -5,8 +5,9 @@ Works on Windows (Windows OpenSSH and Git for Windows' ssh), Linux and macOS,
 with the Python 3 standard library only.
 
     port                            same as `port ls`
-    port ls [--json]                ssh connections and their forwards
+    port ls [--json]                ssh connections and their forwards, grouped by host
     port forward LOCAL HOST [REMOTE]
+    port forward LOCAL HOST         same as HOST:LOCAL (REMOTE = 127.0.0.1:LOCAL)
     port forward LOCAL HOST:RPORT   shorthand for REMOTE = 127.0.0.1:RPORT
     port cancel LOCAL               stop the tunnel that forwards LOCAL
 
@@ -14,11 +15,16 @@ with the Python 3 standard library only.
 This is the interface for other tools, so its fields stay stable:
 
     pid           int
+    ppid          int    parent process id, or null if unknown
     host          str    destination as given on the command line ("?" if unknown)
     kind          str    "tunnel" (-N), "interactive" (no remote command),
                          "other" (remote command, -W proxy helper, git, scp, ...),
                          "mux" (ControlMaster process), "unknown" (command line unreadable)
     command_line  str    full command line, or null if unreadable
+    note          str    why the command line is unreadable, or null
+    proxy_for     int    PID of the ssh this process is the ProxyJump/ProxyCommand
+                         helper of (a child ssh with -W), or null
+    via           list of str: hosts of this connection's proxy helpers
     forwards      list of objects:
       type        str    "L", "R" or "D"
       listen      str    "PORT" or "BIND:PORT" (or a socket path)
@@ -29,6 +35,9 @@ This is the interface for other tools, so its fields stay stable:
                          explains, e.g. added with ~C during the session)
       listening   bool   whether the process really listens on the port,
                          null for R (it listens on the server) or if unknown
+      shared_with list of int: PIDs of other processes listening on the same
+                         port (Windows lets several bind it; one of them gets
+                         each connection)
 """
 import argparse
 import json
@@ -233,7 +242,7 @@ def make_forward(ftype, bind, port, target, source):
     else:
         listen = str(port)
     return {"type": ftype, "listen": listen, "port": port_int, "target": target,
-            "source": source, "listening": None}
+            "source": source, "listening": None, "shared_with": []}
 
 
 def parse_forward(ftype, spec, source):
@@ -287,10 +296,15 @@ def is_ssh_program(arg0):
 
 
 def ssh_processes():
-    """Return [(pid, command_line or None)] of the ssh client processes."""
+    """Return [{pid, ppid, cmdline, note}] of the ssh client processes.
+
+    note says why cmdline is None (unreadable), else it is None.
+    """
     if WINDOWS:
         ps = ("$p = @(Get-CimInstance Win32_Process -Filter \"Name='ssh.exe'\" | "
-              "Select-Object ProcessId,CommandLine); ConvertTo-Json -Compress -InputObject $p")
+              "Select-Object ProcessId,ParentProcessId,CommandLine,SessionId,"
+              "@{n='Start';e={$_.CreationDate.ToString('yyyy-MM-dd HH:mm')}}); "
+              "ConvertTo-Json -Compress -InputObject $p")
         out = run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps])
         if out is None:
             return []
@@ -301,19 +315,27 @@ def ssh_processes():
             return []
         if isinstance(data, dict):
             data = [data]
-        return [(int(d["ProcessId"]), d.get("CommandLine")) for d in data or []]
+        procs = []
+        for d in data or []:
+            cmdline, note = d.get("CommandLine"), None
+            if not cmdline:
+                who = "a service or another user" if d.get("SessionId") == 0                     else "another user, or it runs elevated"
+                note = f"command line unreadable; {who}, started {d.get('Start') or '?'}"
+            procs.append({"pid": int(d["ProcessId"]), "ppid": d.get("ParentProcessId"),
+                          "cmdline": cmdline, "note": note})
+        return procs
 
-    out = run(["ps", "-eo", "pid=,args="])
+    out = run(["ps", "-eo", "pid=,ppid=,args="])
     if out is None:
         return []
     procs = []
     for line in out.splitlines():
-        pid, _, args = line.strip().partition(" ")
-        if not pid.isdigit():
+        f = line.split(None, 2)
+        if len(f) < 3 or not f[0].isdigit() or not f[1].isdigit():
             continue
-        args = args.strip()
+        args = f[2].strip()
         if args.startswith("ssh: ") or (args and is_ssh_program(args.split()[0])):
-            procs.append((int(pid), args))
+            procs.append({"pid": int(f[0]), "ppid": int(f[1]), "cmdline": args, "note": None})
     return procs
 
 
@@ -427,8 +449,10 @@ def config_forwards(exe, gargs, dest):
     return [f for f in map(parse_g_line, out.splitlines()) if f]
 
 
-def describe(pid, cmdline):
-    entry = {"pid": pid, "host": "?", "kind": "unknown", "command_line": cmdline,
+def describe(proc):
+    pid, cmdline = proc["pid"], proc["cmdline"]
+    entry = {"pid": pid, "ppid": proc["ppid"], "host": "?", "kind": "unknown",
+             "command_line": cmdline, "note": proc["note"], "proxy_for": None, "via": [],
              "forwards": []}
     if not cmdline:
         return entry, None
@@ -444,6 +468,7 @@ def describe(pid, cmdline):
     opts, dest, command = parse_ssh_args(argv[1:])
     letters = {o for o, _ in opts}
     entry["host"] = dest or "-"
+    entry["_proxy"] = "W" in letters
     if "N" in letters:
         entry["kind"] = "tunnel"
     elif command or letters & {"W", "O", "s", "V", "G", "Q"} or dest is None:
@@ -474,8 +499,8 @@ def same_forward(a, b):
 def gather():
     procs = ssh_processes()
     entries, queries = [], {}
-    for pid, cmdline in procs:
-        entry, query = describe(pid, cmdline)
+    for proc in procs:
+        entry, query = describe(proc)
         entries.append((entry, query))
         if query:
             queries[query] = None
@@ -484,6 +509,12 @@ def gather():
             for q, res in zip(queries, pool.map(lambda q: config_forwards(*q), queries)):
                 queries[q] = res
     socks = listeners() if procs else []
+    by_pid = {e["pid"]: e for e, _ in entries}
+    for entry, _ in entries:
+        parent = by_pid.get(entry["ppid"])
+        if entry.pop("_proxy", False) and parent:
+            entry["proxy_for"] = parent["pid"]
+            parent["via"].append(entry["host"])
     result = []
     for entry, query in entries:
         for f in queries.get(query) or []:
@@ -494,15 +525,22 @@ def gather():
             ports = {p for _, p in mine}
             explained = set()
             for f in entry["forwards"]:
+                f["shared_with"] = []
                 if f["type"] in "LD":
                     f["listening"] = f["port"] in ports
                     explained.add(f["port"])
+                    if f["listening"]:
+                        f["shared_with"] = sorted({pid for _, p, pid, _ in socks
+                                                   if p == f["port"] and pid is not None
+                                                   and pid != entry["pid"]})
             for a, p in mine:
                 if p not in explained:
                     explained.add(p)
                     entry["forwards"].append({
                         "type": "L", "listen": str(p), "port": p, "target": None,
-                        "source": "runtime", "listening": True})
+                        "source": "runtime", "listening": True, "shared_with": sorted(
+                            {pid for _, q, pid, _ in socks
+                             if q == p and pid is not None and pid != entry["pid"]})})
         result.append(entry)
     result.sort(key=lambda e: e["pid"])
     return result
@@ -523,6 +561,8 @@ def forward_status(f):
         bits.append("listening")
     elif f["listening"] is False:
         bits.append("NOT listening")
+    if f.get("shared_with"):
+        bits.append("also bound by PID " + ", ".join(map(str, f["shared_with"])))
     return f"({', '.join(bits)})" if bits else ""
 
 
@@ -531,18 +571,39 @@ def cmd_ls(args):
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
+    # Proxy helpers (ssh -W of a ProxyJump) show as VIA of their connection.
+    shown = [e for e in data if e["proxy_for"] is None]
+    groups = {}
+    for e in shown:
+        groups.setdefault(e["host"], []).append(e)
+    hosts = sorted(groups, key=lambda h: (h in ("?", "-"), h.lower()))
+    with_via = any(e["via"] for e in shown)
     rows = []
-    for e in data:
-        if not e["forwards"]:
-            rows.append((str(e["pid"]), e["host"], e["kind"], "-", ""))
-        for i, f in enumerate(e["forwards"]):
-            host, kind = (e["host"], e["kind"]) if i == 0 else ("", "")
-            rows.append((str(e["pid"]), host, kind, forward_text(f), forward_status(f)))
-    header = ("PID", "HOST", "KIND", "FORWARDS", "")
-    widths = [max(len(r[c]) for r in rows + [header]) for c in range(4)]
+    for h in hosts:
+        for j, e in enumerate(groups[h]):
+            first = (h if j == 0 else "", str(e["pid"]), e["kind"])
+            if with_via:
+                first += (", ".join(e["via"]) or "-",)
+            if not e["forwards"]:
+                rows.append(first + ("-", e["note"] or ""))
+            for i, f in enumerate(e["forwards"]):
+                lead = first if i == 0 else ("",) * len(first)
+                rows.append(lead + (forward_text(f), forward_status(f)))
+    header = ("HOST", "PID", "KIND") + (("VIA",) if with_via else ()) + ("FORWARDS", "")
+    n = len(header) - 1
+    widths = [max(len(r[c]) for r in rows + [header]) for c in range(n)]
     for r in [header] + rows:
-        line = "  ".join(r[c].ljust(widths[c]) for c in range(4)) + "  " + r[4]
+        line = "  ".join(r[c].ljust(widths[c]) for c in range(n)) + "  " + r[n]
         print(line.rstrip())
+
+    shared = {}
+    for e in data:
+        for f in e["forwards"]:
+            if f["shared_with"]:
+                shared[f["port"]] = sorted({e["pid"], *f["shared_with"]})
+    for port, pids in sorted(shared.items()):
+        print(f"\nnote: port {port} is bound by several processes (PID "
+              f"{', '.join(map(str, pids))}); each connection goes to only one of them.")
     return 0
 
 
@@ -679,6 +740,15 @@ def cmd_forward(args):
     print(f"L {local} -> {target} via {host} (PID {proc.pid})")
     for line in notes:
         print(f"  ssh: {line}")
+    # Windows lets a config LocalForward bind a port another ssh already
+    # holds (ClearAllForwardings would also drop our -L), so point it out.
+    for e in gather():
+        if e["pid"] == proc.pid:
+            for f in e["forwards"]:
+                if f["shared_with"]:
+                    print(f"  note: {f['source']} forward {forward_text(f)} is also bound by PID "
+                          f"{', '.join(map(str, f['shared_with']))}; each connection goes to "
+                          f"only one of them")
     return 0
 
 

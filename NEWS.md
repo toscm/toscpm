@@ -6,6 +6,21 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.70.0
+
+- `port ls` groups the connections by host.
+  The `ssh -W` helper processes of a ProxyJump no longer show as separate connections of kind `other`; they appear in a new VIA column of the connection they serve.
+
+- `port ls` flags a port that several processes listen on: "also bound by PID ...", plus a note under the table.
+  Windows lets a second ssh bind a port that another one already holds; this happens when two connections to the same host both apply a `LocalForward` from `~/.ssh/config`, and each connection then reaches only one of them.
+  `port forward` prints the same note when its new tunnel shares a port this way.
+
+- `port ls` explains ssh processes whose command line it cannot read: on Windows these belong to a service or another user, and the row shows when they were started.
+
+- `port ls --json` has the new fields `ppid`, `note`, `proxy_for` and `via`, and `shared_with` for each forward; the existing fields are unchanged.
+
+- `port -h` documents that `port forward LOCAL HOST` forwards to the same port on HOST, like `HOST:LOCAL`.
+
 ## 1.69.0
 
 - Neovim: `lazy-lock.json` is no longer tracked; each machine keeps its own, which lazy.nvim writes on every plugin install and update.
