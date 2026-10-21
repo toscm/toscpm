@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.71.0
+
+- `port ls` drops the table for a layout that wraps well in a narrow terminal: a heading per host (bold blue on a terminal, plain with `NO_COLOR` or when piped), a line per connection (PID, kind, "via" host) and an indented line per forward, `8765 --> 127.0.0.1:8765`.
+  Connections to hosts that have a `Host` line in `~/.ssh/config` (or a file it includes) are grouped under that host; all others, including those whose command line is unreadable, come last under "others".
+  Forwards that listen as they should no longer say "listening"; only "NOT listening" is shown.
+  `port ls --json` is unchanged.
+
 ## 1.70.0
 
 - `port ls` groups the connections by host.

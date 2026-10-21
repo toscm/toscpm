@@ -5,7 +5,8 @@ Works on Windows (Windows OpenSSH and Git for Windows' ssh), Linux and macOS,
 with the Python 3 standard library only.
 
     port                            same as `port ls`
-    port ls [--json]                ssh connections and their forwards, grouped by host
+    port ls [--json]                ssh connections and their forwards, grouped by the
+                                    hosts of ~/.ssh/config, the rest under "others"
     port forward LOCAL HOST [REMOTE]
     port forward LOCAL HOST         same as HOST:LOCAL (REMOTE = 127.0.0.1:LOCAL)
     port forward LOCAL HOST:RPORT   shorthand for REMOTE = 127.0.0.1:RPORT
@@ -40,6 +41,8 @@ This is the interface for other tools, so its fields stay stable:
                          each connection)
 """
 import argparse
+import fnmatch
+import glob
 import json
 import os
 import re
@@ -555,15 +558,92 @@ def forward_text(f):
     return f"{f['type']} {f['listen']}{arrow}"
 
 
-def forward_status(f):
+def config_hosts():
+    """[(positive, negative)] Host patterns of ~/.ssh/config and its Includes.
+
+    A bare `Host *` is left out: it matches every host.
+    """
+    sshdir = os.path.join(os.path.expanduser("~"), ".ssh")
+    result, seen = [], set()
+
+    def read(path):
+        path = os.path.normcase(os.path.abspath(path))
+        if path in seen:
+            return
+        seen.add(path)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            return
+        for line in lines:
+            words = split_cmdline(line.split("#", 1)[0].replace("=", " ", 1))
+            if not words:
+                continue
+            key = words[0].lower()
+            if key == "include":
+                for pat in words[1:]:
+                    pat = os.path.expanduser(pat)
+                    if not os.path.isabs(pat):
+                        pat = os.path.join(sshdir, pat)
+                    for inc in sorted(glob.glob(pat)):
+                        read(inc)
+            elif key == "host":
+                pos = [w.lower() for w in words[1:] if not w.startswith("!")]
+                neg = [w[1:].lower() for w in words[1:] if w.startswith("!")]
+                pos = [w for w in pos if w != "*"]
+                if pos:
+                    result.append((pos, neg))
+
+    read(os.path.join(sshdir, "config"))
+    return result
+
+
+def in_config(host, patterns):
+    """Whether the ssh destination `host` matches a Host line of ~/.ssh/config."""
+    if host in ("?", "-"):
+        return False
+    h = host.split("@", 1)[-1]
+    if h.startswith("ssh://"):
+        h = h[6:]
+    m = re.match(r"^\[([^\]]+)\](?::\d+)?$", h) or re.match(r"^([^:]+):\d+$", h)
+    h = (m.group(1) if m else h).lower()
+    return any(any(fnmatch.fnmatchcase(h, p) for p in pos)
+               and not any(fnmatch.fnmatchcase(h, p) for p in neg)
+               for pos, neg in patterns)
+
+
+def use_color():
+    """ANSI colours on a terminal, unless NO_COLOR is set."""
+    if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
+        return False
+    if WINDOWS:
+        try:
+            import ctypes
+            k = ctypes.windll.kernel32
+            h = k.GetStdHandle(-11)
+            mode = ctypes.c_uint32()
+            if k.GetConsoleMode(h, ctypes.byref(mode)):
+                k.SetConsoleMode(h, mode.value | 0x0004)   # VIRTUAL_TERMINAL_PROCESSING
+        except (AttributeError, OSError):
+            pass
+    return True
+
+
+def ls_forward(f):
+    """One forward as a line of `port ls`: '8765 --> 127.0.0.1:8765 (config)'."""
+    if f["type"] == "D":
+        text = f"{f['listen']} (SOCKS proxy)"
+    elif f["type"] == "R":
+        text = f"remote {f['listen']} --> {f['target'] or 'SOCKS proxy'}"
+    else:
+        text = f"{f['listen']} --> {f['target'] or '?'}"
     bits = [] if f["source"] == "cmdline" else [f["source"]]
-    if f["listening"] is True:
-        bits.append("listening")
-    elif f["listening"] is False:
+    if f["listening"] is False:
         bits.append("NOT listening")
-    if f.get("shared_with"):
+    if f["shared_with"]:
         bits.append("also bound by PID " + ", ".join(map(str, f["shared_with"])))
-    return f"({', '.join(bits)})" if bits else ""
+    return f"{text} ({', '.join(bits)})" if bits else text
 
 
 def cmd_ls(args):
@@ -571,39 +651,45 @@ def cmd_ls(args):
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
-    # Proxy helpers (ssh -W of a ProxyJump) show as VIA of their connection.
-    shown = [e for e in data if e["proxy_for"] is None]
-    groups = {}
-    for e in shown:
-        groups.setdefault(e["host"], []).append(e)
-    hosts = sorted(groups, key=lambda h: (h in ("?", "-"), h.lower()))
-    with_via = any(e["via"] for e in shown)
-    rows = []
-    for h in hosts:
-        for j, e in enumerate(groups[h]):
-            first = (h if j == 0 else "", str(e["pid"]), e["kind"])
-            if with_via:
-                first += (", ".join(e["via"]) or "-",)
-            if not e["forwards"]:
-                rows.append(first + ("-", e["note"] or ""))
-            for i, f in enumerate(e["forwards"]):
-                lead = first if i == 0 else ("",) * len(first)
-                rows.append(lead + (forward_text(f), forward_status(f)))
-    header = ("HOST", "PID", "KIND") + (("VIA",) if with_via else ()) + ("FORWARDS", "")
-    n = len(header) - 1
-    widths = [max(len(r[c]) for r in rows + [header]) for c in range(n)]
-    for r in [header] + rows:
-        line = "  ".join(r[c].ljust(widths[c]) for c in range(n)) + "  " + r[n]
-        print(line.rstrip())
+    color = use_color()
 
-    shared = {}
-    for e in data:
+    def paint(code, text):
+        return f"\033[{code}m{text}\033[0m" if color else text
+
+    # Proxy helpers (ssh -W of a ProxyJump) show as "via" of their connection.
+    shown = [e for e in data if e["proxy_for"] is None]
+    if not shown:
+        print("no ssh connections")
+        return 0
+    patterns = config_hosts()
+    groups, others = {}, []
+    for e in shown:
+        if in_config(e["host"], patterns):
+            groups.setdefault(e["host"], []).append(e)
+        else:
+            others.append(e)
+
+    def connection(e, with_host):
+        host = {"?": "unknown host", "-": "no host"}.get(e["host"], e["host"])
+        bits = [host] if with_host else []
+        bits += [f"PID {e['pid']}", e["kind"]]
+        if e["via"]:
+            bits.append("via " + ", ".join(e["via"]))
+        if e["note"]:
+            bits.append(e["note"])
+        print(paint("2", ", ".join(bits)))
         for f in e["forwards"]:
-            if f["shared_with"]:
-                shared[f["port"]] = sorted({e["pid"], *f["shared_with"]})
-    for port, pids in sorted(shared.items()):
-        print(f"\nnote: port {port} is bound by several processes (PID "
-              f"{', '.join(map(str, pids))}); each connection goes to only one of them.")
+            print("  " + ls_forward(f))
+
+    blocks = [(h, groups[h], False) for h in sorted(groups, key=str.lower)]
+    if others:
+        blocks.append(("others", others, True))
+    for i, (title, entries, with_host) in enumerate(blocks):
+        if i:
+            print()
+        print(paint("1;34", title))
+        for e in entries:
+            connection(e, with_host)
     return 0
 
 
