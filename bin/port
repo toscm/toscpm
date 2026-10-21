@@ -659,7 +659,7 @@ def cmd_ls(args):
     # Proxy helpers (ssh -W of a ProxyJump) show as "via" of their connection.
     shown = [e for e in data if e["proxy_for"] is None]
     if not shown:
-        print("no ssh connections")
+        print("\nno ssh connections\n")
         return 0
     patterns = config_hosts()
     groups, others = {}, []
@@ -684,12 +684,12 @@ def cmd_ls(args):
     blocks = [(h, groups[h], False) for h in sorted(groups, key=str.lower)]
     if others:
         blocks.append(("others", others, True))
-    for i, (title, entries, with_host) in enumerate(blocks):
-        if i:
-            print()
-        print(paint("1;34", title))
+    for title, entries, with_host in blocks:
+        print()
+        print(paint("1;32", title))
         for e in entries:
             connection(e, with_host)
+    print()
     return 0
 
 

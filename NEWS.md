@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.71.1
+
+- `port ls`: host headings are bold green instead of blue, and an empty line precedes and ends the output, so it stands apart from the prompt.
+
 ## 1.71.0
 
 - `port ls` drops the table for a layout that wraps well in a narrow terminal: a heading per host (bold blue on a terminal, plain with `NO_COLOR` or when piped), a line per connection (PID, kind, "via" host) and an indented line per forward, `8765 --> 127.0.0.1:8765`.
