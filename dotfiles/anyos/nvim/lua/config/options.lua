@@ -48,10 +48,12 @@ vim.g.loaded_ruby_provider = 0
 vim.opt.keymodel = { "startsel" }
 vim.opt.selectmode = ""
 
--- A bar cursor in Visual mode, so the character under it shows the
--- selection highlight. With the default block cursor it looked unselected,
--- although it is part of the selection and gets deleted with it.
-vim.opt.guicursor = "n-c-sm:block,v-i-ci-ve:ver25,r-cr-o:hor20,t:block-blinkon500-blinkoff500-TermCursor"
+-- An underline cursor in Visual mode, so the character under it shows the
+-- selection highlight (with the default block cursor it looked unselected,
+-- although it is part of the selection and gets deleted with it), and it
+-- sits under the last selected character rather than before it, like a bar
+-- cursor did, which made Right look as if it would select that character.
+vim.opt.guicursor = "n-c-sm:block,v:hor20,i-ci-ve:ver25,r-cr-o:hor20,t:block-blinkon500-blinkoff500-TermCursor"
 
 -- Only explicit copies reach the system clipboard: "+y, or y / Ctrl+C on a
 -- Visual selection (see keymaps.lua). LazyVim otherwise syncs every yank and

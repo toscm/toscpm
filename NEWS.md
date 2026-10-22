@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.80.0
+
+- Neovim: an underline cursor in Visual mode instead of a bar, so it sits under the last selected character and the character under it still shows the selection highlight.
+
 ## 1.79.0
 
 - Neovim: no inlay hints (the parameter names and types a language server shows inside the code); `<leader>uh` still turns them on for the current buffer.
