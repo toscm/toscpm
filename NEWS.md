@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.76.0
+
+- Neovim: the R language server (the `languageserver` R package, install it with `install.packages("languageserver")`) starts for R, R Markdown and Quarto files.
+  It brings folds for functions, braces, roxygen and other comment blocks and `# Section ####` headers, the symbol outline (`<leader>ss`, `<leader>cs`, the breadcrumb), hover, completion and diagnostics.
+  The workspace root is the nearest directory with a `DESCRIPTION`, independent of nvim's working directory, so the server knows the whole package; without one it is the git root or the file's directory.
+  Without the package, R exits quietly instead of failing on every R file.
+
+- Neovim: roxygen colours in R files: examples in comment colour instead of normal text colour, the title bold in comment colour instead of blue, and the argument names after `@param` and `@field` in orange; the tags keep their blue.
+
 ## 1.75.0
 
 - Neovim: Ctrl+Shift+[ / Ctrl+Shift+] close / open the fold under the cursor, as in VS Code.
