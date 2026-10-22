@@ -81,6 +81,7 @@ If a hotkey stops working anyway, lock and unlock the screen (Win+L), or run `sc
 - `toscpm-umlaute` runs `dotfiles/windows/autohotkey/umlaute.ahk`: Alt+a/o/u/s types ä/ö/ü/ß, with Shift the capitals.
 
 - `toscpm-screensync` runs `dotfiles/windows/autohotkey/screensync.ahk`: copies each new screenshot in `Pictures\Screenshots` to `R:\home\toscm\pictures\screenshots` and `S:\home\tschmidt\pictures\screenshots` (those that exist, i.e. whose SSHFS drive is mounted) and puts its server path, `~/pictures/screenshots/<name>`, into the clipboard.
+  A screenshot overwritten later (e.g. drawn into and saved again) is copied again.
   Its tray icon is a picture; a click opens the screenshots folder.
 
 - `toscpm-capman` runs `capman/capman.ahk` from the [capman](https://github.com/toscm/capman) repo, if it is cloned next to toscpm.

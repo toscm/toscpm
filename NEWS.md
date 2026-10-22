@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.83.0
+
+- screensync copies a screenshot again when it is overwritten, e.g. drawn into and saved again in the Snipping Tool.
+  It now looks at the files created or modified in the last minute and copies each one whose modification time or size changed.
+
+- screensync's "copied" notification disappears after 3 seconds; warnings about failed copies stay until dismissed.
+
 ## 1.82.0
 
 - New autostart task `toscpm-screensync` (Windows): an AutoHotkey script with a tray icon that copies each new screenshot to `~/pictures/screenshots` on the SSHFS drives R: and S:, if mounted, and puts that path into the clipboard, so a screenshot can be handed to a program on the server, such as claude in an ssh session.
