@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.85.0
+
+- nvim no longer auto-closes HTML tags in Markdown, where nvim-ts-autotag's Insert-mode mapping of > typed it only at the main cursor when there were several cursors, so quoting several lines with "> " quoted only the last one.
+
 ## 1.84.0
 
 - nvim keeps the indent on wrapped lines, like VS Code's "same" wrapping indent mode.
