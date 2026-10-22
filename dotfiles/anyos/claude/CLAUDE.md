@@ -92,6 +92,13 @@ tell me and give me the command to authenticate, e.g.:
 - GitLab: `glab auth login --hostname <host>` (e.g.
   `glab auth login --hostname git.uni-regensburg.de`)
 
+## Machines
+
+- r4 has no `/data/shared`.
+  Its `~/.Renviron` sets `DATA_SHARED` to a folder in my home drive, and datasrc reads from there.
+  To give r4 raw data, copy it into the matching subfolder of that folder.
+  If copying a few GB of caches is enough, prefer that.
+
 ## Markdown and plain-text docs
 
 These docs (README, NEWS, CLAUDE.md, changelogs, etc.) are read as plain text
