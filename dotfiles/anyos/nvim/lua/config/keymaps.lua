@@ -239,6 +239,13 @@ map("x", "<C-z>", "<Esc>u", { desc = "Undo" })
 map("n", "<C-a>", "ggVG", { desc = "Select All" })
 map({ "i", "x" }, "<C-a>", "<Esc>ggVG", { desc = "Select All" })
 
+-- Ctrl+Shift+[ / Ctrl+Shift+] close / open the fold under the cursor (zc /
+-- zo). Ctrl+[ is the same key as Esc, so nvim receives Ctrl+Shift+[ as
+-- Shift+Esc (with or without tmux), which is why that is mapped; Shift+Esc
+-- itself therefore closes a fold too.
+map("n", "<S-Esc>", "zc", { desc = "Fold" })
+map("n", "<C-S-]>", "zo", { desc = "Unfold" })
+
 -- :KeyTest shows each key the way Neovim receives it, e.g. <C-S-P>, without
 -- running any mapping; q quits. Whether Ctrl+Shift+P arrives as <C-S-P> or
 -- only as <C-P> shows whether extended keys work through every layer

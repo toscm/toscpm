@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.75.0
+
+- Neovim: Ctrl+Shift+[ / Ctrl+Shift+] close / open the fold under the cursor, as in VS Code.
+  nvim receives Ctrl+Shift+[ as Shift+Esc (Ctrl+[ is Esc), so Shift+Esc closes a fold too.
+
 ## 1.74.0
 
 - tmux: F1, F2 and F4 work again in Windows Terminal; in kitty keyboard mode it sends them as `\e[P`, `\e[Q` and `\e[S`, which tmux did not decode, so F1 reached nvim as Alt+[ followed by P instead of opening the command palette.
