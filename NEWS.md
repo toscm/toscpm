@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.82.0
+
+- New autostart task `toscpm-screensync` (Windows): an AutoHotkey script with a tray icon that copies each new screenshot to `~/pictures/screenshots` on the SSHFS drives R: and S:, if mounted, and puts that path into the clipboard, so a screenshot can be handed to a program on the server, such as claude in an ssh session.
+
 ## 1.81.0
 
 - Neovim: Ctrl+Q starts a block selection (Ctrl+V's job, which Windows Terminal keeps for paste), in Normal, Visual and Insert mode, as in Vim on Windows.

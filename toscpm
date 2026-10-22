@@ -1419,6 +1419,7 @@ def link_shell_verbs(cur_os):
 # are skipped while that repo is not cloned.
 AUTOSTART = [
     ("toscpm-umlaute", REPO_DIR / "dotfiles/windows/autohotkey/umlaute.ahk"),
+    ("toscpm-screensync", REPO_DIR / "dotfiles/windows/autohotkey/screensync.ahk"),
     ("toscpm-capman",  REPO_DIR.parent / "capman/capman/capman.ahk"),
 ]
 
