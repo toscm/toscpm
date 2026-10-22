@@ -4,10 +4,13 @@
 
 -- Command palette, as in VS Code: keymaps and ":" commands with their
 -- descriptions (see lua/config/palette.lua). LazyVim's keymap picker is on
--- <leader>sk; F1 (which otherwise opens :help) and <leader>p open this one.
--- VS Code's Ctrl+Shift+P is not used: terminals send Ctrl+Shift+letter as
--- plain Ctrl+letter, so it would arrive as Ctrl+P and open a file instead.
+-- <leader>sk; Ctrl+Shift+P (as in VS Code), F1 (which otherwise opens :help)
+-- and <leader>p open this one. Ctrl+Shift+P only reaches nvim through a
+-- terminal that reports extended keys (see tmux.conf) and does not keep the
+-- key for itself (Windows Terminal opens its own command palette on it by
+-- default); elsewhere it arrives as Ctrl+P and opens a file instead.
 local palette = require("config.palette")
+vim.keymap.set({ "n", "v", "i" }, "<C-S-p>", palette, { desc = "Command Palette" })
 vim.keymap.set({ "n", "v", "i" }, "<F1>", palette, { desc = "Command Palette" })
 vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
 
@@ -182,7 +185,8 @@ map({ "n", "t" }, "<C-`>", function()
 end, { desc = "Terminal (Root Dir)" })
 
 -- Ctrl+P opens a file (<leader><space>), Ctrl+Shift+F searches all files
--- (<leader>/). The command palette is on F1 (see the top of this file).
+-- (<leader>/). The command palette is on Ctrl+Shift+P and F1 (see the top
+-- of this file).
 map("n", "<C-p>", LazyVim.pick("files"), { desc = "Find Files (Root Dir)" })
 map("n", "<C-S-f>", LazyVim.pick("live_grep"), { desc = "Grep (Root Dir)" })
 

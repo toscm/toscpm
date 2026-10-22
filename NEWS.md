@@ -6,6 +6,13 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.74.0
+
+- tmux: F1, F2 and F4 work again in Windows Terminal; in kitty keyboard mode it sends them as `\e[P`, `\e[Q` and `\e[S`, which tmux did not decode, so F1 reached nvim as Alt+[ followed by P instead of opening the command palette.
+
+- Neovim: Ctrl+Shift+P also opens the command palette, as in VS Code.
+  It needs a terminal that reports extended keys and does not keep Ctrl+Shift+P for itself; Windows Terminal opens its own command palette on it unless that is moved to another key.
+
 ## 1.73.0
 
 - Neovim and tmux: Alt+Left/Right move between nvim windows and tmux panes alike, through the smart-splits.nvim plugin and its tmux backend.
