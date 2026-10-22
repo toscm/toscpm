@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.81.0
+
+- Neovim: Ctrl+Q starts a block selection (Ctrl+V's job, which Windows Terminal keeps for paste), in Normal, Visual and Insert mode, as in Vim on Windows.
+
+- Neovim: dragging with the middle mouse button selects a block; the middle button no longer pastes in nvim.
+
 ## 1.80.0
 
 - Neovim: an underline cursor in Visual mode instead of a bar, so it sits under the last selected character and the character under it still shows the selection highlight.

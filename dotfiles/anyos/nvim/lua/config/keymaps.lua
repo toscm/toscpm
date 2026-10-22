@@ -119,6 +119,19 @@ for _, key in ipairs({ "<S-Left>", "<S-Right>", "<S-Up>", "<S-Down>" }) do
   vim.keymap.set("i", key, "<C-o>v", { desc = "Start Selection" })
 end
 
+-- Block selection without Ctrl+V, which Windows Terminal keeps for paste
+-- (Ctrl+Shift+V too): Ctrl+Q, as in Vim on Windows, or dragging with the
+-- middle mouse button (Alt+drag, Vim's own, adds cursors, see
+-- multicursor.lua). The drag starts a block at the press and extends it
+-- like a left-button drag; the middle button no longer pastes in nvim.
+vim.keymap.set({ "n", "x" }, "<C-q>", "<C-v>", { desc = "Block Selection" })
+vim.keymap.set("i", "<C-q>", "<C-o><C-v>", { desc = "Block Selection" })
+vim.keymap.set("n", "<MiddleMouse>", "<LeftMouse><C-v>", { desc = "Block Selection" })
+vim.keymap.set("x", "<MiddleMouse>", "<Esc><LeftMouse><C-v>", { desc = "Block Selection" })
+vim.keymap.set("i", "<MiddleMouse>", "<LeftMouse><C-o><C-v>", { desc = "Block Selection" })
+vim.keymap.set({ "n", "x", "i" }, "<MiddleDrag>", "<LeftDrag>", { desc = "Extend Block Selection" })
+vim.keymap.set({ "n", "x", "i" }, "<MiddleRelease>", "<Nop>")
+
 -- Esc in Normal mode also dismisses all notifications (see
 -- lua/plugins/notifier.lua), on top of what LazyVim's Esc does: clear the
 -- search highlight and stop the active snippet. The hiding is scheduled
