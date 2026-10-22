@@ -11,8 +11,8 @@
 -- text, without touching the buffer. It is lazy-loaded, so it is pulled in
 -- the first time a bounded state is requested.
 --
--- Mid-word breaking is intentional: 'linebreak' stays off (its default), so
--- wrapped lines break at the last screen cell rather than at word boundaries.
+-- Wrapped lines break at word boundaries, since LazyVim turns 'linebreak'
+-- on, and keep their indent ('breakindent', see config/options.lua).
 --
 -- Note the mixed scopes: 'wrap' is window-local while :Wrapwidth is
 -- buffer-local, which is harmless as long as a buffer is shown in one window

@@ -98,3 +98,11 @@ vim.opt.whichwrap = "b,s,<,>,[,],h,l"
 -- where Enter (keymaps.lua) opens a new line and Delete joins the next one.
 -- "block" is LazyVim's default (free movement in Visual block mode).
 vim.opt.virtualedit = "block,onemore"
+
+-- Wrapped lines keep the indent of the line they continue, like VS Code's
+-- "editor.wrappingIndent": "same". list:-1 goes further on lines matching
+-- 'formatlistpat' (markdown sets it to "- ", "+ ", "* " and "1. " items)
+-- and aligns their continuations with the item text, two columns past the
+-- indent for "+ " and three for "1. ".
+vim.opt.breakindent = true
+vim.opt.breakindentopt = "list:-1"

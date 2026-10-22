@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.84.0
+
+- nvim keeps the indent on wrapped lines, like VS Code's "same" wrapping indent mode.
+  Continuations of markdown list items align with the item text, two columns after "+ " and three after "1. ".
+
 ## 1.83.0
 
 - screensync copies a screenshot again when it is overwritten, e.g. drawn into and saved again in the Snipping Tool.
