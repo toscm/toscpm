@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.79.0
+
+- Neovim: no inlay hints (the parameter names and types a language server shows inside the code); `<leader>uh` still turns them on for the current buffer.
+
 ## 1.78.0
 
 - Claude instructions: a Machines section with where r4 looks for the raw data that datasrc reads.
