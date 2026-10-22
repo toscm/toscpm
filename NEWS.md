@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.76.1
+
+- Neovim: the roxygen colours from 1.76.0 now show once the R language server is running; its semantic highlighting painted every comment, the whole roxygen block included, in comment colour on top of them.
+
 ## 1.76.0
 
 - Neovim: the R language server (the `languageserver` R package, install it with `install.packages("languageserver")`) starts for R, R Markdown and Quarto files.

@@ -6,6 +6,11 @@
 -- names after @param and @field get the orange of Type, as GitHub shows
 -- parameters.
 --
+-- The R language server (plugins/r.lua) marks every comment as a semantic
+-- token of type comment, whose highlight is drawn on top of the syntax and
+-- painted the whole roxygen block in comment colour; with that group empty
+-- the syntax colours show through.
+--
 -- A colorscheme switch (see plugins/colorscheme.lua) clears these, so they
 -- are set again on every ColorScheme event.
 vim.cmd([[syn match rOParamName contained containedin=rOBlock,rOBlockNoTitle,rOR6Block "\(@\(param\|field\)\s\+\)\@<=\S\+"]])
@@ -17,6 +22,7 @@ local function set_hl()
   vim.api.nvim_set_hl(0, "rOTitleBlock", title)
   vim.api.nvim_set_hl(0, "rOExamples", { link = "Comment" })
   vim.api.nvim_set_hl(0, "rOParamName", { link = "Type" })
+  vim.api.nvim_set_hl(0, "@lsp.type.comment.r", {})
 end
 
 set_hl()
