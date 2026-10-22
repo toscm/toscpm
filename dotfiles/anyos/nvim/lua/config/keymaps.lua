@@ -239,6 +239,13 @@ map("x", "<C-z>", "<Esc>u", { desc = "Undo" })
 map("n", "<C-a>", "ggVG", { desc = "Select All" })
 map({ "i", "x" }, "<C-a>", "<Esc>ggVG", { desc = "Select All" })
 
+-- Alt+Left / Alt+Right go back / forward through the jump list (Ctrl+O /
+-- Ctrl+I), as in VS Code: back to where gd/F12, a search, G, a file switch
+-- etc. came from. Ctrl+I is not remapped (noremap), so Tab's own mapping
+-- above does not get in the way.
+map("n", "<A-Left>", "<C-o>", { desc = "Go Back" })
+map("n", "<A-Right>", "<C-i>", { desc = "Go Forward" })
+
 -- Ctrl+Shift+[ / Ctrl+Shift+] close / open the fold under the cursor (zc /
 -- zo). Ctrl+[ is the same key as Esc, so nvim receives Ctrl+Shift+[ as
 -- Shift+Esc (with or without tmux), which is why that is mapped; Shift+Esc

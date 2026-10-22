@@ -1,14 +1,12 @@
--- One set of keys moves between Neovim windows and tmux panes: once there
--- is no window further in that direction, the move goes on to the next tmux
--- pane (smart-splits with its tmux backend; tmux.conf has the other half).
---
--- Alt+Left/Right move left/right, like Alt+arrows between tmux panes.
--- Alt+Up/Down stay Move Line Up/Down (keymaps.lua), so Ctrl+J/K move down/up
--- instead, as LazyVim's Ctrl+J/K did, now on into tmux panes too.
+-- Ctrl+J/K go to the window below/above, as LazyVim's Ctrl+J/K did, and
+-- past the last window on to the tmux pane below/above (smart-splits with
+-- its tmux backend, which asks tmux to switch the pane itself, so tmux.conf
+-- needs no bindings for it). Left/right: Ctrl+W h/l, or Ctrl+W p back and
+-- forth between the explorer and the file; Alt+Left/Right go back/forward
+-- (keymaps.lua).
 --
 -- Not lazy loaded: the backend tells tmux that the pane runs Neovim (the
--- pane option @pane-is-vim) when it loads, and until then tmux keeps
--- Alt+Left/Right for itself.
+-- pane option @pane-is-vim) when it loads.
 local function move(dir)
   return function()
     require("smart-splits")["move_cursor_" .. dir]()
@@ -27,8 +25,6 @@ return {
       mux = { backend = "smart-splits-backend-tmux", warn_if_unusable = false },
     },
     keys = {
-      { "<A-Left>", move("left"), mode = { "n", "i", "t" }, desc = "Go to Left Window or Pane" },
-      { "<A-Right>", move("right"), mode = { "n", "i", "t" }, desc = "Go to Right Window or Pane" },
       { "<C-j>", move("down"), desc = "Go to Lower Window or Pane" },
       { "<C-k>", move("up"), desc = "Go to Upper Window or Pane" },
     },
