@@ -935,6 +935,8 @@ DOTFILES = [
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "macos"),
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "linux"),
     ("~/AppData/Roaming/bat/config",  "dotfiles/anyos/bat/config",            "windows"),
+    ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "macos"),
+    ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "linux"),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
     ("~/.zshrc",                      "dotfiles/linux/zshrc",                 "linux"),
     ("~/.bashrc",                     "dotfiles/linux/bashrc",                "linux"),

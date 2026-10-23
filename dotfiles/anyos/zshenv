@@ -1,0 +1,12 @@
+# zsh environment, read by every zsh including non-interactive ones (scripts,
+# `zsh -c`, commands run over ssh or by tools). Keep it to environment
+# variables; interactive settings belong in zshrc.
+
+# Where `toscpm install` puts no-admin binaries and `toscpm link` puts bin/
+# scripts. Set here, not only in zshrc, so non-interactive shells also find
+# them first (e.g. a detached tmux server started from a script would
+# otherwise be the older system tmux, which newer clients cannot talk to).
+export PATH="$HOME/.local/bin:$PATH"
+
+# Rust toolchain (rustup), if installed
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
