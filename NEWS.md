@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.87.0
+
+- screensync no longer freezes when an SSHFS drive's connection dies (e.g. while its server is being upgraded).
+  Each copy now runs in a hidden process with a 10 second timeout, and the notification names the servers it could not reach, e.g. "Copied to r4 ... (rhskl2 not reachable)".
+  The path goes into the clipboard as soon as one copy is done.
+
 ## 1.86.0
 
 - In nvim, I and A on a selection insert before and append after it, at every cursor after Ctrl+D, like I/A in a block selection.
