@@ -10,3 +10,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Rust toolchain (rustup), if installed
 [[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
+
+# German time on the Linux servers (r4 and co. are in Germany but their
+# system clock is set to UTC). macOS keeps its system timezone.
+[[ $OSTYPE == linux* ]] && export TZ="Europe/Berlin"

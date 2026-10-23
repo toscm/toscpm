@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.89.0
+
+- zsh: `~/.zshenv` sets `TZ=Europe/Berlin` on Linux, so `date`, `ls`, git and R show German time on servers whose system timezone is UTC.
+
 ## 1.88.0
 
 - zsh: a managed `~/.zshenv` (macOS and Linux) that puts `~/.local/bin` first on `PATH` for every zsh, including non-interactive ones, so a tmux server started from a script uses the same tmux as the interactive client; it also sources `~/.cargo/env` if it exists.
