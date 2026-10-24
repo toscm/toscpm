@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.92.0
+
+- New tool: zsh-autosuggestions, the grey inline suggestion from history in zsh (Right or End accepts it; Up/Down and fzf's Ctrl-R are untouched), as PowerShell's inline prediction.
+  Installed with Homebrew on macOS and the apt package on Linux, or without admin as a clone in `~/.local/share/zsh-autosuggestions`; the shared zshrc sources whichever is present.
+  toscpm's `app_path` now takes a list of paths with `~`, and a tool's own `version_cmd` is used to verify a Linux no-admin install, so a plugin that is a single sourced file can be tracked like a binary.
+
+- nvim: R Markdown and Quarto files (`rmd`, `quarto`) are parsed with the markdown treesitter parser, and the `r` parser is installed, so R chunks are highlighted by treesitter like fenced code in Markdown.
+  Before, these filetypes had no parser and fell back to Vim's regex syntax.
+
 ## 1.91.0
 
 - nvim: Alt+z now cycles word wrap through off, on (window edge), 80 columns and 66 columns; 66 is the classic measure for comfortable reading of prose, for markdown and text documents.

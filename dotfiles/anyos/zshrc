@@ -25,6 +25,22 @@ fi
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' # Case-insensitive matching
 zstyle ':completion:*' remove-all-dups yes # Remove duplicate completion candidates
 
+# zsh-autosuggestions: the most recent history entry that starts with what
+# is typed is shown in grey after the cursor, as in PowerShell's inline
+# prediction; Right or End accepts it, typing on ignores it. Up/Down and
+# Ctrl-R (fzf) are untouched. toscpm installs it: Homebrew on macOS (the
+# per-OS zshrc points ZSH_AUTOSUGGESTIONS_PLUGIN at it), the apt package or
+# a clone in ~/.local/share on Linux.
+for _plugin in "${ZSH_AUTOSUGGESTIONS_PLUGIN:-}" \
+  "$HOME/.local/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+  /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh; do
+  if [[ -r $_plugin ]]; then
+    source "$_plugin"
+    break
+  fi
+done
+unset _plugin
+
 # ---------------------------------------------------------------------------
 # History and shell options
 # ---------------------------------------------------------------------------

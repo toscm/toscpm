@@ -201,8 +201,9 @@ class Tool:
     # os -> shell command printing the version, for tools whose binary has no
     # usable version flag (GUI apps). Defaults to `<bin> <version_flag>`.
     version_cmd: dict = field(default_factory=dict)
-    # os -> path of an app bundle that counts as installed, for apps that put
-    # no command on PATH (macOS .app).
+    # os -> path (or list of paths, ~ expanded) that counts as installed, for
+    # tools that put no command on PATH: a macOS .app, or a shell plugin that
+    # is a single sourced file.
     app_path: dict = field(default_factory=dict)
     # Only wanted on a machine with a desktop (a terminal emulator), so not
     # reported or installed on a headless server or in an ssh session.
@@ -360,6 +361,20 @@ TOOLS = [
     Tool("zoxide", "zoxide",
          {"macos": "brew install zoxide", "linux": "curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh", "windows": "winget install ajeetdsouza.zoxide"},
          Script("curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh")),
+    # zsh-autosuggestions is a zsh plugin (one sourced .zsh file), not a
+    # binary. It counts as installed when the file is where the shared zshrc
+    # (dotfiles/anyos/zshrc) looks for it: Homebrew's share on macOS, the apt
+    # package or a clone in ~/.local/share on Linux. The version commands
+    # only confirm the file, since the plugin has no version flag.
+    Tool("zsh-autosuggestions", "zsh-autosuggestions",
+         {"macos": "brew install zsh-autosuggestions", "linux": "sudo apt install -y zsh-autosuggestions"},
+         Script("git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions.git ~/.local/share/zsh-autosuggestions"),
+         version_cmd={"macos": "test -r /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh -o -r /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh && echo installed",
+                      "linux": "test -r ~/.local/share/zsh-autosuggestions/zsh-autosuggestions.zsh -o -r /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh && echo installed"},
+         app_path={"macos": ["/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+                             "/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh"],
+                   "linux": ["~/.local/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+                             "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"]}),
     Tool("fzf", "fzf",
          {"macos": "brew install fzf", "linux": "sudo apt install -y fzf", "windows": "winget install junegunn.fzf"},
          GhBin("junegunn/fzf",
@@ -495,7 +510,9 @@ def bin_candidates(tool, cur_os):
 
 def installed(tool, cur_os):
     if cur_os in tool.app_path:
-        return Path(tool.app_path[cur_os]).exists()
+        paths = tool.app_path[cur_os]
+        paths = [paths] if isinstance(paths, str) else paths
+        return any(Path(p).expanduser().exists() for p in paths)
     return any(shutil.which(c) for c in bin_candidates(tool, cur_os))
 
 
@@ -716,8 +733,12 @@ def build_plan(tool, cur_os, t):
     if tool.user_linux is None:
         return {"status": "admin_only" if tool.admin.get("linux") else "unavailable"}
 
-    # Linux no-admin recipes install binaries into ~/.local/bin, so verify there.
-    verify = ("Verifying", f"{primary} {tool.version_flag}", f"{BIN}/{primary} {tool.version_flag}")
+    # Linux no-admin recipes install binaries into ~/.local/bin, so verify
+    # there, unless the tool has its own version command (no binary).
+    if "linux" in tool.version_cmd:
+        verify = ("Verifying", tool.version_cmd["linux"], tool.version_cmd["linux"])
+    else:
+        verify = ("Verifying", f"{primary} {tool.version_flag}", f"{BIN}/{primary} {tool.version_flag}")
     ver, steps = linux_steps(tool.user_linux, t)
     steps.append(verify)
     return {"status": "ok", "version": ver, "steps": steps}

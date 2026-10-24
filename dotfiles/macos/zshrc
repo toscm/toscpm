@@ -8,6 +8,9 @@
 # Uncomment to use the zsh-autocomplete plugin instead of builtin completion.
 # ZSH_AUTOCOMPLETE_PLUGIN="$HOME/Repos/zsh-autocomplete/zsh-autocomplete.plugin.zsh"
 
+# Homebrew's zsh-autosuggestions (Apple silicon prefix; /usr/local on Intel).
+ZSH_AUTOSUGGESTIONS_PLUGIN=/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
 source "${${(%):-%N}:A:h:h}/anyos/zshrc"
 
 # Hide brew hints
