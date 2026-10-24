@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.93.0
+
+- Add the `ft` bin script (all OSes): a compact, coloured directory tree between `ls` and `tree -L 2`, with folders as branches and the files of each folder on one line wrapped to the terminal width.
+  Folders are bold blue and files keep the terminal's default colour, with tree lines dimmed; only base ANSI colours and dim are used, so it reads well on light and dark themes.
+  Each file line is ordered as ALL_CAPS files (README, NEWS.md, LICENSE, DESCRIPTION, CRAN-SUBMISSION, ...), normal files, then config files (Makefile, Dockerfile, codecov.yml, cran-comments.md, `*.Rproj`, ...), `_` files and dot files, the last three dimmed.
+  Inside a git repo it skips ignored files; folders deeper than `-L N` (default 2) are shown as `name/ (N files)`, and `-a` includes ignored files.
+  Generated or binary files (Rd, rds, rda, pdf, png, svg, pyc, ...) are counted next to their folder instead of listed, e.g. `man/ (24 Rd)` or `img/ (3 files, 12 pdf)`; `-f` lists them by name.
+
 ## 1.92.0
 
 - New tool: zsh-autosuggestions, the grey inline suggestion from history in zsh (Right or End accepts it; Up/Down and fzf's Ctrl-R are untouched), as PowerShell's inline prediction.

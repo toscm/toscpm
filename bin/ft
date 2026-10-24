@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""ft - Compact tree: directories as branches, files of each directory on one wrapped line."""
+import argparse, os, shutil, subprocess, sys
+
+# Tooling/config files: dimmed and listed after the normal files, like _ and . files
+CONFIG = {"makefile", "dockerfile", "cran-comments.md", "codecov.yml", "renv.lock", "latexmkrc",
+          "docker-compose.yml", "package.json", "package-lock.json", "pyproject.toml",
+          "setup.cfg", "tox.ini", "uv.lock", "mkdocs.yml"}
+CONFIG_EXT = {"rproj", "dockerfile"}
+
+# Extensions of usually generated or binary files: only counted, next to the folder name
+ABBREV = {"rd", "rds", "rda", "rdata", "pdf", "png", "jpg", "jpeg", "gif", "svg", "ico",
+          "pyc", "o", "so", "dll", "class"}
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("path", nargs="?", default=".")
+    ap.add_argument("-L", "--level", type=int, default=2, help="max directory depth (default 2)")
+    ap.add_argument("-a", "--all", action="store_true", help="include git-ignored files")
+    ap.add_argument("-f", "--full", action="store_true", help="list abbreviated file types (Rd, png, ...) by name")
+    args = ap.parse_args()
+    color = sys.stdout.isatty()
+    width = shutil.get_terminal_size().columns
+    root = os.path.abspath(args.path)
+
+    # Only the 16 base ANSI colours and dim: terminals remap these per theme,
+    # so the output stays readable on light and dark backgrounds alike.
+    def sgr(code, s):
+        return f"\033[{code}m{s}\033[0m" if color else s
+
+    def folder(s):
+        return sgr("1;34", s)
+
+    def dim(s):
+        return sgr("2", s)
+
+    # Collect files: honour .gitignore inside git repos unless --all
+    files = None
+    if not args.all:
+        try:
+            out = subprocess.run(["git", "-C", root, "ls-files", "-co", "--exclude-standard"],
+                                 capture_output=True, text=True, check=True).stdout
+            files = [f for f in out.splitlines() if os.path.exists(os.path.join(root, f))]
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+    if files is None:
+        files = []
+        for d, ds, fs in os.walk(root):
+            ds[:] = [x for x in ds if x != ".git"]
+            files += [os.path.relpath(os.path.join(d, f), root) for f in fs]
+
+    tree = {}  # nested dict; files under key None
+    for f in files:
+        node = tree
+        *dirs, name = f.replace(os.sep, "/").split("/")
+        for x in dirs:
+            node = node.setdefault(x, {})
+        node.setdefault(None, []).append(name)
+
+    def ext(name):
+        return name.rsplit(".", 1)[1] if "." in name[1:] else ""
+
+    def group(name):
+        # 0 ALL_CAPS (README, NEWS.md, ...), 1 normal, 2 config, 3 _file, 4 .file
+        stem = name.split(".")[0]
+        if name.startswith("."):
+            return 4
+        if name.startswith("_"):
+            return 3
+        if name.lower() in CONFIG or ext(name).lower() in CONFIG_EXT:
+            return 2
+        if any(ch.isalpha() for ch in stem) and not any(ch.islower() for ch in stem):
+            return 0
+        return 1
+
+    def abbreviated(name):
+        return not args.full and ext(name).lower() in ABBREV
+
+    def summary(names, n_other=None):
+        # "(3 files, 24 Rd)": abbreviated types by count, most common first
+        by_ext = {}
+        for f in names:
+            if abbreviated(f):
+                key = ext(f).lower()
+                n, label = by_ext.get(key, (0, ext(f)))
+                by_ext[key] = (n + 1, label)
+        parts = [f"{n} {label}" for n, label in sorted(by_ext.values(), key=lambda x: -x[0])]
+        if n_other:
+            parts.insert(0, f"{n_other} file{'s' * (n_other != 1)}")
+        return " " + dim(f"({', '.join(parts)})") if parts else ""
+
+    def all_files(node):
+        return node.get(None, []) + [f for k, v in node.items() if k is not None for f in all_files(v)]
+
+    def wrap(items, prefix):
+        # Greedy fill to terminal width; files keep the default foreground colour,
+        # config, _ and . files are dimmed
+        lines, cur, cur_len = [], [], len(prefix)
+        for item in items:
+            if cur and cur_len + 2 + len(item) > width:
+                lines.append(dim(prefix) + "  ".join(cur)); cur, cur_len = [], len(prefix)
+            cur.append(dim(item) if group(item) >= 2 else item); cur_len += len(item) + 2
+        if cur:
+            lines.append(dim(prefix) + "  ".join(cur))
+        return lines
+
+    def walk(node, prefix, depth):
+        subdirs = sorted(k for k in node if k is not None)
+        fs = sorted((f for f in node.get(None, []) if not abbreviated(f)),
+                    key=lambda s: (group(s), s.lower()))
+        if fs:
+            bar = "│   " if subdirs else "    "
+            for line in wrap(fs, prefix + bar):
+                print(line)
+        for i, sd in enumerate(subdirs):
+            last = i == len(subdirs) - 1
+            child = node[sd]
+            branch = dim(prefix + ("└── " if last else "├── ")) + folder(sd + "/")
+            if depth >= args.level:
+                names = all_files(child)
+                print(branch + summary(names, sum(not abbreviated(f) for f in names)))
+                continue
+            print(branch + summary(child.get(None, [])))
+            walk(child, prefix + ("    " if last else "│   "), depth + 1)
+
+    print(folder(os.path.basename(root) + "/") + summary(tree.get(None, [])))
+    walk(tree, "", 1)
+
+if __name__ == "__main__":
+    main()

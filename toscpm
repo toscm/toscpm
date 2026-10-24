@@ -1090,6 +1090,7 @@ def link_dotfiles(cur_os):
 BIN_SCRIPTS = [
     ("code",      "bin/code",      "linux"),
     ("deepsleep", "bin/deepsleep", "macos"),
+    ("ft",        "bin/ft",        None),
     ("port",      "bin/port",      None),
     ("ptree",     "bin/ptree",     "linux"),
 ]
