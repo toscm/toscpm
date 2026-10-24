@@ -273,6 +273,20 @@ map("n", "<A-Right>", "<C-i>", { desc = "Go Forward" })
 map("n", "<S-Esc>", "zc", { desc = "Fold" })
 map("n", "<C-S-]>", "zo", { desc = "Unfold" })
 
+-- Word wrap under <leader>uw (see lua/config/wrap.lua): LazyVim's plain
+-- <leader>uw wrap toggle becomes a which-key group (named in
+-- lua/plugins/wrap-cycle.lua) whose popup shows the state of each setting:
+-- w wraps on/off (knowing about the bounded state, unlike LazyVim's
+-- toggle), l breaks between words or within a word, c asks for the column
+-- to bind at, m opens the menu the lualine item opens on click. Alt-Z and
+-- Alt+Shift+Z (wrap-cycle.lua) are the quick versions.
+pcall(vim.keymap.del, "n", "<leader>uw")
+local wrap = require("config.wrap")
+wrap.toggles().wrap:map("<leader>uww")
+wrap.toggles().linebreak:map("<leader>uwl")
+map("n", "<leader>uwc", wrap.prompt, { desc = "Wrap at Column..." })
+map("n", "<leader>uwm", wrap.select, { desc = "Word Wrap Menu" })
+
 -- :KeyTest shows each key the way Neovim receives it, e.g. <C-S-P>, without
 -- running any mapping; q quits. Whether Ctrl+Shift+P arrives as <C-S-P> or
 -- only as <C-P> shows whether extended keys work through every layer

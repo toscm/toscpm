@@ -6,6 +6,17 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.91.0
+
+- nvim: Alt+z now cycles word wrap through off, on (window edge), 80 columns and 66 columns; 66 is the classic measure for comfortable reading of prose, for markdown and text documents.
+
+- nvim: Alt+Shift+z toggles whether wrapped lines break between words (LazyVim's default) or within a word at exactly the wrap column (`linebreak`).
+
+- nvim: `<leader>uw` is a which-key group for word wrap instead of LazyVim's plain wrap toggle, showing the state of each setting: `w` wraps on/off (clearing a bounded column too), `l` breaks between/within words, `c` asks for the column to bind at, `m` opens the menu the lualine item opens on click.
+  The menu lists off, on, 80, 66 and an "other column..." prompt.
+
+- nvim: with wrap off, a line that continues beyond the window's edge ends in a `›` (or starts with `‹`), as there is no horizontal scrollbar.
+
 ## 1.90.0
 
 - New macOS dotfile: an iTerm2 dynamic profile, `dotfiles/macos/iterm2/toscpm.json`, linked into `~/Library/Application Support/iTerm2/DynamicProfiles`, where iTerm2 picks it up while running.

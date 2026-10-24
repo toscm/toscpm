@@ -106,3 +106,9 @@ vim.opt.virtualedit = "block,onemore"
 -- indent for "+ " and three for "1. ".
 vim.opt.breakindent = true
 vim.opt.breakindentopt = "list:-1"
+
+-- With wrap off, a line that continues beyond the window's right or left
+-- edge ends in a mark, since there is no horizontal scrollbar. LazyVim
+-- turns 'list' on; its other 'listchars' (tab, trail, nbsp) stay as they
+-- are.
+vim.opt.listchars:append({ extends = "›", precedes = "‹" })
