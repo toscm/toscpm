@@ -19,6 +19,13 @@ vim.keymap.set("n", "<leader>p", palette, { desc = "Command Palette" })
 vim.keymap.set("x", "y", '"+y', { desc = "Copy selection to clipboard" })
 vim.keymap.set("x", "<C-c>", '"+y', { desc = "Copy selection to clipboard" })
 
+-- Alt is Option on macOS. Neovim treats <A-x> and <M-x> as the same key, so
+-- every Alt mapping here works there as soon as the terminal sends Option as
+-- Alt (Esc+): iTerm2 does so only if the profile says so, and its stock key
+-- mappings turn Option+Left/Right into Esc b/f and Forward Delete into
+-- Ctrl+D. The toscpm iTerm2 profile (dotfiles/macos/iterm2/toscpm.json in
+-- the toscpm repo) does both; :KeyTest below shows what arrives.
+--
 -- Alt+Up/Down move lines like LazyVim's Alt+j/k, in Normal, Insert and Visual
 -- mode. remap so they follow whatever Alt+j/k are bound to.
 vim.keymap.set({ "n", "i", "v" }, "<A-Down>", "<A-j>", { remap = true, desc = "Move Down" })

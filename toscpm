@@ -935,6 +935,14 @@ DOTFILES = [
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "macos"),
     ("~/.config/bat/config",          "dotfiles/anyos/bat/config",            "linux"),
     ("~/AppData/Roaming/bat/config",  "dotfiles/anyos/bat/config",            "windows"),
+    # iTerm2 loads dynamic profiles from this folder while it runs (symlinks
+    # are followed). The toscpm profile inherits from the profile "Default"
+    # and only changes the keys: both Option keys send Esc+ (Option = Alt for
+    # nvim, tmux and zsh) and the stock mappings that turned Option+Left/Right
+    # into Esc b/f and Forward Delete into Ctrl+D are gone. Set it as the
+    # default profile once: Settings > Profiles > toscpm > Other Actions.
+    ("~/Library/Application Support/iTerm2/DynamicProfiles/toscpm.json",
+     "dotfiles/macos/iterm2/toscpm.json", "macos"),
     ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "macos"),
     ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "linux"),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),

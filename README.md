@@ -31,6 +31,7 @@ toscpm update           # pull the latest toscpm (fast-forward only), then link 
 (`toscpm` on PATH?), and repo (clean? pushed? behind upstream?).
 Tools with a `min_version` (nvim, tmux, the terminal emulators) are also reported when they are too old for the dotfiles, and `toscpm install` updates them.
 Terminal emulators (Windows Terminal, iTerm2, Ghostty) are only tracked on a machine with a desktop, not on a headless server or in an ssh session.
+On macOS, `toscpm link` also installs the iTerm2 dynamic profile `toscpm` (`dotfiles/macos/iterm2/toscpm.json`), which inherits from the profile `Default` and makes both Option keys act as Alt (Esc+), so nvim's and tmux's Alt bindings work; set it as the default profile once in iTerm2's settings.
 
 `toscpm update` brings a machine up to date: it pulls the repo, links the dotfiles and runs `check`, which lists any tools that are now missing.
 Install those with `toscpm install` when convenient.

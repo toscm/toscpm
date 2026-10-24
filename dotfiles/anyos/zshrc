@@ -51,6 +51,17 @@ fi
 bindkey '\e[H' beginning-of-line # Home
 bindkey '\e[F' end-of-line       # End
 
+# Alt+Left/Right and Ctrl+Left/Right move by word, as in nvim, and Delete
+# deletes the character under the cursor (zsh binds none of these itself).
+# They arrive as xterm-style sequences from every terminal; iTerm2's stock
+# key mappings sent Esc b/f and Ctrl+D instead, which the toscpm profile
+# (dotfiles/macos/iterm2/toscpm.json) no longer does.
+bindkey '\e[1;3D' backward-word # Alt+Left
+bindkey '\e[1;3C' forward-word  # Alt+Right
+bindkey '\e[1;5D' backward-word # Ctrl+Left
+bindkey '\e[1;5C' forward-word  # Ctrl+Right
+bindkey '\e[3~' delete-char     # Delete
+
 # ---------------------------------------------------------------------------
 # PATH
 # ---------------------------------------------------------------------------

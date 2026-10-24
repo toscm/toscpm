@@ -6,6 +6,15 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.90.0
+
+- New macOS dotfile: an iTerm2 dynamic profile, `dotfiles/macos/iterm2/toscpm.json`, linked into `~/Library/Application Support/iTerm2/DynamicProfiles`, where iTerm2 picks it up while running.
+  It inherits everything from the profile named "Default" and changes only the keys: both Option keys send Esc+, so Option works as Alt in nvim, tmux and zsh, and the stock key mappings that turned Option+Left/Right into Esc b/f and Forward Delete into Ctrl+D are gone.
+  Those two things kept nvim's Alt+Left/Right (go back/forward), Alt+Up/Down (move lines), Alt+z, Alt+\ and Delete from working on macOS; the left Option key was set to "Normal", which types special characters and drops the modifier from the arrow keys.
+  Set it as the default profile once (Settings > Profiles > toscpm > Other Actions > Set as Default) and open a new tab; nvim's `:KeyTest` shows what arrives.
+
+- zsh: Alt+Left/Right and Ctrl+Left/Right move by word and Delete deletes the character under the cursor in every terminal, bound to the xterm-style sequences that replace the Esc b/f and Ctrl+D the old iTerm2 mappings sent.
+
 ## 1.89.0
 
 - zsh: `~/.zshenv` sets `TZ=Europe/Berlin` on Linux, so `date`, `ls`, git and R show German time on servers whose system timezone is UTC.
