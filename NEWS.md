@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.93.1
+
+- iTerm2 (toscpm profile): Cmd+Left/Right now send Home/End (`\e[H`/`\e[F`) instead of Ctrl+A/Ctrl+E.
+  zsh moved to the start/end of the line either way, but in nvim Ctrl+E scrolled the window and Ctrl+A selected everything, so the cursor never moved.
+
 ## 1.93.0
 
 - Add the `ft` bin script (all OSes): a compact, coloured directory tree between `ls` and `tree -L 2`, with folders as branches and the files of each folder on one line wrapped to the terminal width.

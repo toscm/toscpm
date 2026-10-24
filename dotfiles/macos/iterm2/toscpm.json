@@ -7,8 +7,8 @@
       "Option Key Sends": 2,
       "Right Option Key Sends": 2,
       "Keyboard Map": {
-        "0xf702-0x300000": { "Action": 11, "Text": "0x1" },
-        "0xf703-0x300000": { "Action": 11, "Text": "0x5" },
+        "0xf702-0x300000": { "Action": 10, "Text": "[H" },
+        "0xf703-0x300000": { "Action": 10, "Text": "[F" },
         "0x7f-0x100000": { "Action": 11, "Text": "0x15" },
         "0x7f-0x80000": { "Action": 11, "Text": "0x1b 0x7f" },
         "0xf728-0x80000": { "Action": 10, "Text": "d" }
