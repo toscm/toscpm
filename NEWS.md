@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.94.0
+
+- Add radian (R console) as a tool, installed on every OS with `uv tool install radian`.
+  Its own uv venv survives system Python upgrades; a `pip install --user` copy broke when Ubuntu 26.04 moved `/usr/bin/python3` to 3.14 and left the package in an old `site-packages`.
+
 ## 1.93.1
 
 - iTerm2 (toscpm profile): Cmd+Left/Right now send Home/End (`\e[H`/`\e[F`) instead of Ctrl+A/Ctrl+E.

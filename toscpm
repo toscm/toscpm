@@ -215,6 +215,8 @@ RUST_MUSL = {
     "aarch64": "aarch64-unknown-linux-musl",
 }
 
+RADIAN_INSTALL = '"$(command -v uv || echo "$HOME/.local/bin/uv")" tool install radian'
+
 # pauk (flashcard CLI, github.com/toscm/pauk): editable install from
 # a clone in the repos dir, venv under cli/.venv, symlinked into
 # ~/.local/bin. Idempotent; `pauk update` pulls + reinstalls later.
@@ -424,6 +426,11 @@ TOOLS = [
          Script(UV_PY_DEFAULT)),
     Tool("R", "R",
          {"macos": "brew install r", "linux": "sudo apt install -y r-base", "windows": "winget install RProject.R"}),
+    # radian (R console) as a uv tool: its own venv survives system Python
+    # upgrades, which strand a `pip install --user` copy in an old site-packages.
+    Tool("radian", "radian",
+         {"macos": RADIAN_INSTALL, "linux": RADIAN_INSTALL, "windows": "uv tool install radian"},
+         Script(RADIAN_INSTALL)),
     Tool("node", "node",
          {"macos": "brew install node", "linux": "sudo apt install -y nodejs", "windows": "winget install OpenJS.NodeJS"},
          NodeDist()),
