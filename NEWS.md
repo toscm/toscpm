@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.95.0
+
+- tmux (Linux source build): the recipe now checks with `nm` that the built tmux calls ncurses' `tiparm_s`, and stops before installing if not.
+  When configure misses `tiparm_s` it falls back to plain `tiparm`, which ncurses 6.6 (Ubuntu 26.04) refuses for the clipboard sequence, so tmux silently sent no OSC 52 and copying (in tmux and in Claude Code inside tmux) never reached the system clipboard.
+
 ## 1.94.0
 
 - Add radian (R console) as a tool, installed on every OS with `uv tool install radian`.

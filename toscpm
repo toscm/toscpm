@@ -257,6 +257,10 @@ UV_PY_DEFAULT = (
 # cmd-parse.c. A stub that fails loudly stands in for it: should make ever want
 # to regenerate the parser, the build stops rather than quietly producing a
 # half-built tmux.
+# Before installing, the recipe checks with nm that the binary calls ncurses'
+# tiparm_s. configure falls back to plain tiparm when it does not detect
+# tiparm_s, and ncurses 6.6 (Ubuntu 26.04) refuses string arguments there, so
+# such a tmux silently sends no OSC 52 and copying never reaches the clipboard.
 TMUX_BUILD = r"""set -e
 for h in event2/event.h curses.h; do
     [ -e "/usr/include/$h" ] || {
@@ -280,6 +284,11 @@ touch cmd-parse.c
 export PATH="$D/stub:$PATH"
 ./configure --prefix="$HOME/.local" >/dev/null
 make -j"$(nproc)" >/dev/null
+nm -D tmux | grep -q ' tiparm_s' || {
+    echo "tmux: built without tiparm_s, so copying would not reach the clipboard;" \
+         "check that libncurses-dev matches the installed ncurses" >&2
+    exit 1
+}
 make install >/dev/null"""
 
 # tree-sitter CLI, needed by nvim-treesitter (main branch) to build parsers.
