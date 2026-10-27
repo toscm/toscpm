@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.97.0
+
+- iTerm2 profile: Option+a/o/u/s and Shift+Option+a/o/u type ä ö ü ß Ä Ö Ü directly, while both Option keys stay Meta (Esc+) for nvim, tmux and zsh.
+  Karabiner's umlaut rule types them with the Option+u dead key, which Esc+ turned into `ESC u`; that rule now skips iTerm2.
+
 ## 1.96.0
 
 - Add the `shortpath` bin script (all OSes), which shortens a path to at most 20 characters: `~` for home, parent folders cut to their first letter from the left (`~/R/t/dotfiles/anyos`), then an ellipsis for leading folders (`…/Docs/Ultima I`), and a too-long last folder cut in its middle.
