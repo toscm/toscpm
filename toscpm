@@ -1109,6 +1109,7 @@ BIN_SCRIPTS = [
     ("ft",        "bin/ft",        None),
     ("port",      "bin/port",      None),
     ("ptree",     "bin/ptree",     "linux"),
+    ("shortpath", "bin/shortpath", None),
 ]
 
 

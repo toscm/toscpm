@@ -67,6 +67,7 @@ Windows cannot run a script through a symlink, so there `toscpm link` installs t
   `cancel` only kills `ssh -N` tunnels; for a forward of an interactive session it explains how to remove it there (`~C`, then `-KL 8765`).
   `port ls --json` prints the same as JSON for other tools; `port -h` documents the fields.
   Tunnels use BatchMode, so they need key authentication via a running ssh-agent; otherwise they fail with ssh's error instead of prompting.
+- `shortpath` (all OSes) prints a path shortened to at most 20 characters (`-w N` for another width), for the tmux status bar: `~` for home, then parent folders cut to their first letter from the left, then an ellipsis for the leading folders, so `~/Repos/toscpm/dotfiles/anyos` shows as `~/R/t/dotfiles/anyos`.
 - `ptree` (Linux) shows processes as a memory-sorted tree, grouped by user
   (system users hidden by default). Flags: `-u` (current user only), `-a`
   (include system/service users), `-L N` (max depth), `-w N` (command

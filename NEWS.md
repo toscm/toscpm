@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.96.0
+
+- Add the `shortpath` bin script (all OSes), which shortens a path to at most 20 characters: `~` for home, parent folders cut to their first letter from the left (`~/R/t/dotfiles/anyos`), then an ellipsis for leading folders (`…/Docs/Ultima I`), and a too-long last folder cut in its middle.
+
+- tmux: the status bar shows the current directory through `shortpath`, so long paths no longer take half the bar.
+
 ## 1.95.0
 
 - tmux (Linux source build): the recipe now checks with `nm` that the built tmux calls ncurses' `tiparm_s`, and stops before installing if not.

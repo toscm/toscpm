@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""shortpath - Print a path abbreviated to at most N characters (default 20).
+
+    shortpath [-w N] [PATH]     PATH defaults to the current directory
+
+The home directory becomes ~. If the path is still too long, the parent
+folders are cut to their first letter from the left (~/Repos/toscpm/bin ->
+~/R/toscpm/bin -> ~/R/t/bin) until it fits. If even that is too long, the
+leading folders are replaced by an ellipsis (.../Docs/Ultima I), and a last
+folder that is too long on its own is shortened in its middle (Ultima I -...eitung).
+The tmux status bar uses it for the current directory.
+"""
+import argparse, os
+
+ELLIPSIS = "…"
+
+
+def abbrev(name):
+    # Keep the dot or underscore of hidden folders, so .config becomes .c, not .
+    n = 2 if name[:1] in "._" and len(name) > 1 else 1
+    return name[:n]
+
+
+def middle(name, width):
+    if len(name) <= width:
+        return name
+    head = width // 2
+    tail = width - head - 1
+    return name[:head] + ELLIPSIS + (name[-tail:] if tail > 0 else "")
+
+
+def shorten(path, width):
+    home = os.path.expanduser("~").rstrip("/")
+    if home and (path == home or path.startswith(home + "/")):
+        path = "~" + path[len(home):]
+    if len(path) <= width:
+        return path
+    first, *mid, last = path.split("/")
+    for i in range(len(mid)):
+        mid[i] = abbrev(mid[i])
+        s = "/".join([first, *mid, last])
+        if len(s) <= width:
+            return s
+    for k in range(len(mid) + 1):
+        s = ELLIPSIS + "/" + "/".join([*mid[k:], last])
+        if len(s) <= width:
+            return s
+    return middle(last, width)
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Print a path abbreviated to at most N characters.")
+    ap.add_argument("path", nargs="?", default=os.getcwd(), help="path to shorten (default: current directory)")
+    ap.add_argument("-w", "--width", type=int, default=20, help="maximum length (default: 20)")
+    args = ap.parse_args()
+    print(shorten(args.path.rstrip("/") or "/", max(args.width, 1)))
+
+
+if __name__ == "__main__":
+    main()
