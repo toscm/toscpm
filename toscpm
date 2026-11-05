@@ -239,20 +239,11 @@ PAUK_INSTALL = (
 # on macOS a menu-bar app. Clone into the repos dir and run macos/install.sh,
 # which builds ~/Applications/Capman.app and registers a LaunchAgent. On
 # Windows, `toscpm link` registers capman.ahk as a scheduled task instead.
+# The macOS app also contains the display switching that used to be toscdm.
 CAPMAN_INSTALL = (
     'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
     '{ [ -d "$REPOS/capman" ] || git clone https://github.com/toscm/capman.git "$REPOS/capman"; } && '
     '"$REPOS/capman/macos/install.sh"'
-)
-
-# toscdm (menu-bar display manager, github.com/toscm/toscdm): clone into the
-# repos dir and run its install.sh, which builds ~/Applications/toscdm.app with
-# swiftc and registers a LaunchAgent so it starts at login. Re-running it
-# rebuilds from the current checkout.
-TOSCDM_INSTALL = (
-    'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
-    '{ [ -d "$REPOS/toscdm" ] || git clone https://github.com/toscm/toscdm.git "$REPOS/toscdm"; } && '
-    '"$REPOS/toscdm/install.sh"'
 )
 
 # Default `python` / `python3` on PATH. uv installs a managed interpreter and
@@ -538,11 +529,6 @@ TOOLS = [
          {"macos": CAPMAN_INSTALL},
          version_cmd={"macos": "defaults read ~/Applications/Capman.app/Contents/Info.plist CFBundleShortVersionString"},
          app_path={"macos": "~/Applications/Capman.app"},
-         gui=True),
-    Tool("toscdm", "toscdm",
-         {"macos": TOSCDM_INSTALL},
-         version_cmd={"macos": "defaults read ~/Applications/toscdm.app/Contents/Info.plist CFBundleShortVersionString"},
-         app_path={"macos": "~/Applications/toscdm.app"},
          gui=True),
 ]
 

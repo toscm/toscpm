@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.101.0
+
+- Remove toscdm from TOOLS: its display switching is now part of capman.
+  Uninstall an installed copy with `~/Repos/toscdm/install.sh uninstall` (or delete `~/Applications/toscdm.app` and `~/Library/LaunchAgents/de.tosc.toscdm.plist`).
+
 ## 1.100.0
 
 - Add capman (macOS) to TOOLS: `toscpm install` clones github.com/toscm/capman into the repos dir and runs `macos/install.sh`, which builds the menu-bar app and starts it at login.
