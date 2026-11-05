@@ -6,6 +6,10 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.102.0
+
+- Global CLAUDE.md: pauk's knowledge decks now live in the private repo toscm/pauk-content; the public pauk repo ships only example decks.
+
 ## 1.101.0
 
 - Remove toscdm from TOOLS: its display switching is now part of capman.

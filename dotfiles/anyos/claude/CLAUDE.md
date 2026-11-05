@@ -40,8 +40,8 @@ Before committing to a public repository, check the diff and every new file, and
 Commit messages, issues and docs in a public repo are public too, so do not describe private content there either.
 When in doubt, keep it out and ask me.
 
-In particular, `github.com/toscm/pauk` (my flashcard app) is public: its `content/` holds only published knowledge.
-Knowledge cards about my own or unpublished projects live in a private folder next to the project (convention: `~/projects/<project>/pauk-cards/`) and are imported from there with `pauk import`; never move them into the pauk repo.
+In particular, `github.com/toscm/pauk` (my flashcard app) is public and ships no knowledge decks except a few examples (`examples/`).
+All my decks live in the private repo `github.com/toscm/pauk-content` (`~/Repos/pauk-content`), which pauk reads as a source; never move decks into the pauk repo.
 
 ## Environment & tooling (toscpm)
 
