@@ -235,6 +235,16 @@ PAUK_INSTALL = (
     'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
 )
 
+# capman (CapsLock modifier, modes and window snapping, github.com/toscm/capman):
+# on macOS a menu-bar app. Clone into the repos dir and run macos/install.sh,
+# which builds ~/Applications/Capman.app and registers a LaunchAgent. On
+# Windows, `toscpm link` registers capman.ahk as a scheduled task instead.
+CAPMAN_INSTALL = (
+    'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
+    '{ [ -d "$REPOS/capman" ] || git clone https://github.com/toscm/capman.git "$REPOS/capman"; } && '
+    '"$REPOS/capman/macos/install.sh"'
+)
+
 # toscdm (menu-bar display manager, github.com/toscm/toscdm): clone into the
 # repos dir and run its install.sh, which builds ~/Applications/toscdm.app with
 # swiftc and registers a LaunchAgent so it starts at login. Re-running it
@@ -524,6 +534,11 @@ TOOLS = [
     Tool("pauk", "pauk",
          {"macos": PAUK_INSTALL, "linux": PAUK_INSTALL},
          Script(PAUK_INSTALL)),
+    Tool("capman", "capman",
+         {"macos": CAPMAN_INSTALL},
+         version_cmd={"macos": "defaults read ~/Applications/Capman.app/Contents/Info.plist CFBundleShortVersionString"},
+         app_path={"macos": "~/Applications/Capman.app"},
+         gui=True),
     Tool("toscdm", "toscdm",
          {"macos": TOSCDM_INSTALL},
          version_cmd={"macos": "defaults read ~/Applications/toscdm.app/Contents/Info.plist CFBundleShortVersionString"},
@@ -996,6 +1011,8 @@ DOTFILES = [
     ("~/Library/Application Support/iTerm2/DynamicProfiles/toscpm.json",
      "dotfiles/macos/iterm2/toscpm.json", "macos"),
     ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "macos"),
+    # Capman (macOS app) settings; umlauts are off by default and on for me.
+    ("~/.config/capman/capman.conf",  "dotfiles/macos/capman.conf",           "macos"),
     ("~/.zshenv",                     "dotfiles/anyos/zshenv",                "linux"),
     ("~/.zshrc",                      "dotfiles/macos/zshrc",                 "macos"),
     ("~/.zshrc",                      "dotfiles/linux/zshrc",                 "linux"),

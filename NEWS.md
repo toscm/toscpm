@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.100.0
+
+- Add capman (macOS) to TOOLS: `toscpm install` clones github.com/toscm/capman into the repos dir and runs `macos/install.sh`, which builds the menu-bar app and starts it at login.
+
+- Add the dotfile `~/.config/capman/capman.conf` (macOS), which turns on capman's umlaut bindings (Option+a/o/u/s).
+
 ## 1.99.0
 
 - zsh (macOS): `EDITOR` is now nvim instead of hx, so yazi and other tools edit files with nvim.
