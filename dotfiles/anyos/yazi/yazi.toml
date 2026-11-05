@@ -2,3 +2,9 @@
 # 0/4/4 gives no parent column, equal current + preview.
 [mgr]
 ratio = [0, 4, 4]
+
+# Shell popup (; and :) opens at the bottom, full width, just above the status
+# bar, so it feels like Total Commander's command line.
+[input]
+shell_origin = "bottom-left"
+shell_offset = [0, -1, 1000, 3]

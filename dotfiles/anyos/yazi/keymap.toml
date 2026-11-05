@@ -79,3 +79,21 @@ desc = "Open & focus a tmux pane to the right, in the cwd"
 on   = '"'
 run  = 'shell -- tmux split-window -v -c "$PWD"'
 desc = "Open & focus a tmux pane below, in the cwd"
+
+# === 6. Brief / detailed view (Total Commander: Ctrl+F1 / Ctrl+F2) =========
+# "details" is a custom linemode defined in init.lua.
+# m d / m n are fallbacks in case macOS grabs Ctrl+F1 / Ctrl+F2.
+[[mgr.prepend_keymap]]
+on   = "<C-F1>"
+run  = "linemode none"
+desc = "Brief view: file names only"
+
+[[mgr.prepend_keymap]]
+on   = "<C-F2>"
+run  = "linemode details"
+desc = "Detailed view: name, ext, size, modified"
+
+[[mgr.prepend_keymap]]
+on   = ["m", "d"]
+run  = "linemode details"
+desc = "details"

@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.99.0
+
+- zsh (macOS): `EDITOR` is now nvim instead of hx, so yazi and other tools edit files with nvim.
+
+- yazi: Ctrl+F2 (or `m d`) switches to a Total Commander style detailed view with name, ext, size and modification time columns; Ctrl+F1 (or `m n`) goes back to names only.
+
+- yazi: the shell popup (`;` and `:`) now opens full width at the bottom, just above the status bar, like Total Commander's command line.
+
 ## 1.98.0
 
 - Add toscdm (macOS), a menu-bar app from github.com/toscm/toscdm that turns displays on and off and cycles display modes with Ctrl+Option+Cmd+P.

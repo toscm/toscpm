@@ -17,7 +17,7 @@ source "${${(%):-%N}:A:h:h}/anyos/zshrc"
 export HOMEBREW_NO_ENV_HINTS=1
 
 export VISUAL=code
-export EDITOR=hx
+export EDITOR=nvim
 
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 [[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
