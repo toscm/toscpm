@@ -235,6 +235,16 @@ PAUK_INSTALL = (
     'ln -sf "$REPOS/pauk/cli/.venv/bin/pauk" "$HOME/.local/bin/pauk"'
 )
 
+# toscdm (menu-bar display manager, github.com/toscm/toscdm): clone into the
+# repos dir and run its install.sh, which builds ~/Applications/toscdm.app with
+# swiftc and registers a LaunchAgent so it starts at login. Re-running it
+# rebuilds from the current checkout.
+TOSCDM_INSTALL = (
+    'REPOS="$HOME/repos"; [ -d "$HOME/Repos" ] && REPOS="$HOME/Repos"; '
+    '{ [ -d "$REPOS/toscdm" ] || git clone https://github.com/toscm/toscdm.git "$REPOS/toscdm"; } && '
+    '"$REPOS/toscdm/install.sh"'
+)
+
 # Default `python` / `python3` on PATH. uv installs a managed interpreter and
 # links python, python3 and pythonX.Y into ~/.local/bin, which sits before
 # /usr/bin. The system python3 is left alone, so apt and everything else with
@@ -514,6 +524,11 @@ TOOLS = [
     Tool("pauk", "pauk",
          {"macos": PAUK_INSTALL, "linux": PAUK_INSTALL},
          Script(PAUK_INSTALL)),
+    Tool("toscdm", "toscdm",
+         {"macos": TOSCDM_INSTALL},
+         version_cmd={"macos": "defaults read ~/Applications/toscdm.app/Contents/Info.plist CFBundleShortVersionString"},
+         app_path={"macos": "~/Applications/toscdm.app"},
+         gui=True),
 ]
 
 

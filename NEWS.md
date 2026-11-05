@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.98.0
+
+- Add toscdm (macOS), a menu-bar app from github.com/toscm/toscdm that turns displays on and off and cycles display modes with Ctrl+Option+Cmd+P.
+  `toscpm install` clones it into the repos dir and runs its `install.sh`, which builds the app and starts it at login.
+
 ## 1.97.0
 
 - iTerm2 profile: Option+a/o/u/s and Shift+Option+a/o/u type ä ö ü ß Ä Ö Ü directly, while both Option keys stay Meta (Esc+) for nvim, tmux and zsh.
