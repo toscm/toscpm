@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.106.0
+
+- yazi: Alt+h and Alt+l move the divider between file list and preview by a tenth of their width, and Alt+0 restores the ratio from `yazi.toml`.
+  Yazi has no built-in command for this; the new local plugin `resize-pane.yazi` changes `rt.mgr.ratio` at runtime (yazi 26.1.22 or later).
+
 ## 1.105.0
 
 - yazi: image and PDF previews are rendered up to 3840x2160 pixels (twice Full HD) instead of the default 600x900, so a large preview pane shows them sharp instead of small.

@@ -97,3 +97,20 @@ desc = "Detailed view: name, ext, size, modified"
 on   = ["m", "d"]
 run  = "linemode details"
 desc = "details"
+# === 6. Resize the panes (local resize-pane plugin) ========================
+# Alt+h / Alt+l move the divider between file list and preview by a tenth;
+# Alt+0 restores the ratio from yazi.toml. Alt is Option on macOS.
+[[mgr.prepend_keymap]]
+on   = "<A-h>"
+run  = "plugin resize-pane -- left"
+desc = "Move the divider left (larger preview)"
+
+[[mgr.prepend_keymap]]
+on   = "<A-l>"
+run  = "plugin resize-pane -- right"
+desc = "Move the divider right (larger file list)"
+
+[[mgr.prepend_keymap]]
+on   = "<A-0>"
+run  = "plugin resize-pane -- reset"
+desc = "Reset the pane sizes"
