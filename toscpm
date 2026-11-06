@@ -451,9 +451,10 @@ TOOLS = [
     Tool("radian", "radian",
          {"macos": RADIAN_INSTALL, "linux": RADIAN_INSTALL, "windows": "uv tool install radian"},
          Script(RADIAN_INSTALL)),
+    # pauk runs its TypeScript sources directly, which needs Node 24 or newer.
     Tool("node", "node",
          {"macos": "brew install node", "linux": "sudo apt install -y nodejs", "windows": "winget install OpenJS.NodeJS"},
-         NodeDist()),
+         NodeDist(), min_version="24.0"),
     Tool("curl", "curl",
          {"macos": "brew install curl", "linux": "sudo apt install -y curl", "windows": "winget install cURL.cURL"}),
     Tool("wget", "wget",
