@@ -302,6 +302,22 @@ nm -D tmux | grep -q ' tiparm_s' || {
 }
 make install >/dev/null"""
 
+# chafa, from the static build of the newest release listed on hpjansson.org.
+CHAFA_INSTALL = r"""set -e
+[ "$(uname -m)" = x86_64 ] || {
+    echo "chafa: no static build for $(uname -m): sudo apt install -y chafa" >&2
+    exit 1
+}
+URL=https://hpjansson.org/chafa/releases/static
+ASSET="$(curl -fsSL "$URL/" | grep -o 'chafa-[0-9.]*-[0-9]*-x86_64-linux-gnu\.tar\.gz' | sort -uV | tail -1)"
+[ -n "$ASSET" ] || { echo "chafa: no release found at $URL" >&2; exit 1; }
+D="$(mktemp -d)"
+trap 'rm -rf "$D"' EXIT
+curl -fsSL "$URL/$ASSET" | tar xz -C "$D"
+mkdir -p "$HOME/.local/bin"
+install -m 755 "$(find "$D" -name chafa -type f | head -1)" "$HOME/.local/bin/chafa"
+"""
+
 # tree-sitter CLI, needed by nvim-treesitter (main branch) to build parsers.
 # The GitHub release binaries are linked against glibc 2.39 (Ubuntu 24.04), so
 # they fail on older distros (Ubuntu 22.04 has 2.35) and no musl build exists;
@@ -417,6 +433,13 @@ TOOLS = [
           "windows": "winget install oschwartz10612.Poppler"},
          Script(f'"{REPO_DIR}/scripts/install_poppler"'),
          version_flag="-v"),
+    # chafa turns images into sixel data, which pdfv needs on terminals that
+    # only show sixel images (Windows Terminal, e.g. over ssh). The author
+    # publishes static Linux builds on hpjansson.org, x86_64 only; elsewhere
+    # use apt. No windows entry: pdfv is Unix only, and yazi draws sixel itself.
+    Tool("chafa", "chafa",
+         {"macos": "brew install chafa", "linux": "sudo apt install -y chafa"},
+         Script(CHAFA_INSTALL)),
     Tool("fd", {"default": "fd", "linux": ["fd", "fdfind"]},
          {"macos": "brew install fd", "linux": "sudo apt install -y fd-find", "windows": "winget install sharkdp.fd"},
          GhBin("sharkdp/fd",

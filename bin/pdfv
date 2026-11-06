@@ -12,13 +12,16 @@ Keys: j, Down, Right, Space, PgDn, n   next page
 The mouse wheel turns pages; the arrows in the status line can be clicked.
 
 Pages are rendered by pdftoppm (poppler) at exactly the size of the terminal
-and shown with the kitty graphics protocol (Ghostty, kitty) or the iTerm2
-inline image protocol (iTerm2, WezTerm). Sixel (Windows Terminal) is not
-supported. Inside tmux, pdfv turns on allow-passthrough for its own pane and
-wraps every image sequence for tmux, as yazi does. kitty images use Unicode
-placeholders, which are ordinary text to tmux, so they survive tmux redraws;
-iTerm2 images are redrawn when the pane regains focus.
-Set PDFV_PROTOCOL=kitty or iterm to skip the terminal detection.
+and shown with the kitty graphics protocol (Ghostty, kitty), the iTerm2
+inline image protocol (iTerm2, WezTerm) or, on any other terminal that reports
+sixel support (Windows Terminal), as sixel images. Sixel needs chafa to turn
+the page into sixel data (toscpm install chafa).
+Inside tmux, pdfv turns on allow-passthrough for its own pane and wraps every
+image sequence for tmux, as yazi does. kitty images use Unicode placeholders,
+which are ordinary text to tmux, so they survive tmux redraws; a tmux with
+sixel support takes sixel images directly and redraws them itself. Other
+images are redrawn when the pane regains focus.
+Set PDFV_PROTOCOL=kitty, iterm or sixel to skip the terminal detection.
 """
 import base64, fcntl, os, re, select, shutil, signal, struct, subprocess
 import sys, tempfile, termios, threading, time, tty
@@ -28,6 +31,10 @@ TMUX = bool(os.environ.get("TMUX"))
 # terminal goes into a DCS passthrough with its ESCs doubled.
 START, ESC, CLOSE = ("\x1bPtmux;\x1b\x1b", "\x1b\x1b", "\x1b\\") if TMUX else ("\x1b", "\x1b", "")
 IMAGE_ID = os.getpid() % 0xFFFFFF or 1
+# A tmux built with sixel support stores sixel images in the pane and redraws
+# them itself, so they are sent to it directly instead of passed through.
+TMUX_SIXEL = TMUX and subprocess.run(["tmux", "display", "-p", "#{sixel_support}"],
+                                     capture_output=True, text=True).stdout.strip() == "1"
 
 # Row/column diacritics of the kitty Unicode placeholder scheme
 # (rowcolumn-diacritics.txt from kitty, as in yazi's kgp driver).
@@ -100,6 +107,11 @@ def detect(tty_fd):
     if not proto:
         names = [v for v in re.findall(r"\x1bP>\|([^\x1b]*)", resp) if not v.startswith("tmux")]
         proto = protocol_from(names[0] if names else "")
+    if not proto:
+        # Attribute 4 in the DA1 reply (ESC [ ? 61;4;... c) means sixel graphics.
+        for attrs in re.findall(r"\x1b\[\?([\d;]*)c", resp):
+            if "4" in attrs.split(";"):
+                proto = "sixel"
     m = re.search(r"\x1b\[6;(\d+);(\d+)t", resp)
     if m and int(m.group(1)) and int(m.group(2)):
         return proto, int(m.group(2)), int(m.group(1))
@@ -182,13 +194,32 @@ class Renderer:
         os.unlink(prefix + ".png")
         return data
 
-    def prefetch(self, page, W, H):
-        if 1 <= page <= len(self.sizes):
-            threading.Thread(target=lambda: self._quiet(page, W, H), daemon=True).start()
+    def sixel(self, page, W, H):
+        """The page as a sixel sequence, converted from its PNG by chafa."""
+        key = (page, W, H, "sixel")
+        with self.lock:
+            if key in self.cache:
+                return self.cache[key]
+        data = self.png(page, W, H)
+        # --exact-size keeps the PNG's pixel size, which already fits the
+        # terminal; --polite leaves the cursor and terminal modes alone.
+        res = subprocess.run(["chafa", "-f", "sixels", "--exact-size", "on", "--polite", "on",
+                              "--passthrough", "none", "--probe", "off", "--animate", "off",
+                              "--relative", "off", "-"],
+                             input=data, capture_output=True, check=True)
+        six = res.stdout.rstrip(b"\r\n")
+        with self.lock:
+            self.cache[key] = six
+        return six
 
-    def _quiet(self, *a):
+    def prefetch(self, page, W, H, proto):
+        if 1 <= page <= len(self.sizes):
+            get = self.sixel if proto == "sixel" else self.png
+            threading.Thread(target=lambda: self._quiet(get, page, W, H), daemon=True).start()
+
+    def _quiet(self, get, *a):
         try:
-            self.png(*a)
+            get(*a)
         except Exception:
             pass
 
@@ -223,6 +254,15 @@ def place_kitty(top, left, cols, rows):
     out("".join(s))
 
 
+def show_sixel(six, top, left):
+    out(f"\x1b[{top + 1};{left + 1}H")
+    if TMUX and not TMUX_SIXEL:
+        # wrap() doubles the ESCs inside; the sequence starts after its first ESC.
+        out(wrap(six.decode("latin-1")[1:]).encode("latin-1"))
+    else:
+        out(six)
+
+
 def show_iterm(data, top, left, w, h):
     out(f"\x1b[{top + 1};{left + 1}H")
     out(wrap(f"]1337;File=inline=1;size={len(data)};width={w}px;height={h}px;"
@@ -244,7 +284,12 @@ class Viewer:
 
     def geometry(self):
         cols, rows = shutil.get_terminal_size()
-        return cols, rows, int(cols * self.cw), int((rows - 1) * self.ch)
+        H = int((rows - 1) * self.ch)
+        if self.proto == "sixel":
+            # Sixel images grow in bands of 6 pixels, and one that reaches the
+            # status line would scroll the screen; keep a band free.
+            H -= 6
+        return cols, rows, int(cols * self.cw), H
 
     def draw(self, quick=False):
         cols, rows, W, H = self.geometry()
@@ -253,6 +298,7 @@ class Viewer:
         if W > 0 and H > 0:
             try:
                 data = self.render.png(self.page, W, H)
+                six = self.render.sixel(self.page, W, H) if self.proto == "sixel" else None
             except subprocess.CalledProcessError:
                 data = None
             if data:
@@ -262,9 +308,11 @@ class Viewer:
                 left = (cols - icols) // 2
                 if self.proto == "kitty":
                     show_kitty(data, 0, left, icols, irows)
+                elif self.proto == "sixel":
+                    show_sixel(six, 0, left)
                 else:
                     show_iterm(data, 0, left, w, h)
-                self.render.prefetch(self.page + 1, W, H)
+                self.render.prefetch(self.page + 1, W, H, self.proto)
         self.status(cols, rows)
 
     def status(self, cols, rows):
@@ -411,9 +459,15 @@ def main():
         viewer = Viewer(path, page, fd)
         if viewer.proto is None:
             out("\x1b[2J\x1b[H")
-            out("pdfv: this terminal shows no images through the kitty or iTerm2 protocol\r\n"
-                "(Ghostty, kitty, iTerm2 and WezTerm do; Windows Terminal only has sixel).\r\n"
-                "Set PDFV_PROTOCOL=kitty or iterm to force one. Press a key.")
+            out("pdfv: this terminal reports no image support (kitty, iTerm2 or sixel).\r\n"
+                "Set PDFV_PROTOCOL=kitty, iterm or sixel to force one. Press a key.")
+            os.read(fd, 16)
+            return 1
+        if viewer.proto == "sixel" and not shutil.which("chafa"):
+            out("\x1b[2J\x1b[H")
+            out("pdfv: this terminal shows images as sixel, which needs chafa\r\n"
+                "(toscpm install chafa, or: sudo apt install chafa / brew install chafa).\r\n"
+                "Press a key.")
             os.read(fd, 16)
             return 1
         viewer.run()

@@ -6,6 +6,14 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.111.0
+
+- pdfv: sixel support, for terminals that show no kitty or iTerm2 images but report sixel graphics in their device attributes, such as Windows Terminal (also over ssh).
+  The page is rendered to PNG as before and turned into sixel data by chafa; inside tmux it goes straight to a tmux with sixel support, which then redraws it itself, and is passed through otherwise.
+  `PDFV_PROTOCOL=sixel` forces it.
+
+- Add chafa as a tool (macOS and Linux): `brew install chafa`, `sudo apt install -y chafa`, or without admin the static x86_64 build from hpjansson.org into `~/.local/bin`.
+
 ## 1.110.1
 
 - pdfv: pressing a page key quickly no longer crashes with `FileNotFoundError`.
