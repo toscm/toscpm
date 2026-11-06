@@ -1,9 +1,8 @@
-# Enter a directory, view a PDF over the full width (Enter again goes back;
-# J/K and the mouse wheel turn pages), or open any other file
+# Enter a directory, or open a hovered file (a PDF opens in pdfv, see yazi.toml)
 [[mgr.prepend_keymap]]
 on   = "<Enter>"
 run  = "plugin smart-enter"
-desc = "Enter the dir, view a PDF full width, or open the file"
+desc = "Enter the child directory, or open the file"
 
 # === 1. Edit the path bar / jump anywhere by typing ========================
 # <C-l>: type or Tab-complete an arbitrary path (Double Commander path bar).

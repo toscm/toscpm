@@ -24,3 +24,12 @@ max_height = 9999
 [plugin]
 prepend_previewers = [{ mime = "application/pdf", run = "pdf-view" }]
 prepend_preloaders = [{ mime = "application/pdf", run = "pdf-view" }]
+
+# Enter on a PDF opens it in pdfv (toscpm bin/pdfv), a terminal PDF viewer
+# that also works inside tmux, as Enter on a text file opens nvim. On
+# Windows, which pdfv does not support, the system viewer opens it instead.
+[opener]
+pdf = [{ run = "pdfv %s1", desc = "pdfv (terminal)", for = "unix", block = true }]
+
+[open]
+prepend_rules = [{ mime = "application/pdf", use = ["pdf", "open", "reveal"] }]

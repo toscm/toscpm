@@ -1,0 +1,395 @@
+#!/usr/bin/env python3
+"""pdfv - view a PDF in the terminal, one page at a time, also inside tmux.
+
+    pdfv FILE.pdf [PAGE]
+
+Keys: j, Down, Right, Space, PgDn, n   next page
+      k, Up, Left, b, PgUp, p          previous page
+      g, Home / G, End                 first / last page
+      12 Enter                         go to page 12
+      r                                redraw
+      q, Esc                           quit
+The mouse wheel turns pages; the arrows in the status line can be clicked.
+
+Pages are rendered by pdftoppm (poppler) at exactly the size of the terminal
+and shown with the kitty graphics protocol (Ghostty, kitty) or the iTerm2
+inline image protocol (iTerm2, WezTerm). Sixel (Windows Terminal) is not
+supported. Inside tmux, pdfv turns on allow-passthrough for its own pane and
+wraps every image sequence for tmux, as yazi does. kitty images use Unicode
+placeholders, which are ordinary text to tmux, so they survive tmux redraws;
+iTerm2 images are redrawn when the pane regains focus.
+Set PDFV_PROTOCOL=kitty or iterm to skip the terminal detection.
+"""
+import base64, fcntl, os, re, select, shutil, signal, struct, subprocess
+import sys, tempfile, termios, threading, time, tty
+
+TMUX = bool(os.environ.get("TMUX"))
+# Escape-sequence framing: inside tmux every sequence meant for the outer
+# terminal goes into a DCS passthrough with its ESCs doubled.
+START, ESC, CLOSE = ("\x1bPtmux;\x1b\x1b", "\x1b\x1b", "\x1b\\") if TMUX else ("\x1b", "\x1b", "")
+IMAGE_ID = os.getpid() % 0xFFFFFF or 1
+
+# Row/column diacritics of the kitty Unicode placeholder scheme
+# (rowcolumn-diacritics.txt from kitty, as in yazi's kgp driver).
+_RANGES = (
+    "305 30D-30E 310 312 33D-33F 346 34A-34C 350-352 357 35B 363-36F 483-487 592-595 597-599 "
+    "59C-5A1 5A8-5A9 5AB-5AC 5AF 5C4 610-617 657-65B 65D-65E 6D6-6DC 6DF-6E2 6E4 6E7-6E8 6EB-6EC "
+    "730 732-733 735-736 73A 73D 73F-741 743 745 747 749-74A 7EB-7F1 7F3 816-819 81B-823 825-827 "
+    "829-82D 951 953-954 F82-F83 F86-F87 135D-135F 17DD 193A 1A17 1A75-1A7C 1B6B 1B6D-1B73 "
+    "1CD0-1CD2 1CDA-1CDB 1CE0 1DC0-1DC1 1DC3-1DC9 1DCB-1DCC 1DD1-1DE6 1DFE 20D0-20D1 20D4-20D7 "
+    "20DB-20DC 20E1 20E7 20E9 20F0 2CEF-2CF1 2DE0-2DFF A66F A67C-A67D A6F0-A6F1 A8E0-A8F1 AAB0 "
+    "AAB2-AAB3 AAB7-AAB8 AABE-AABF AAC1 FE20-FE26 10A0F 10A38 1D185-1D189 1D1AA-1D1AD 1D242-1D244"
+)
+DIACRITICS = []
+for _r in _RANGES.split():
+    _a, _, _b = _r.partition("-")
+    DIACRITICS += [chr(c) for c in range(int(_a, 16), int(_b or _a, 16) + 1)]
+
+
+def out(s):
+    os.write(sys.stdout.fileno(), s.encode() if isinstance(s, str) else s)
+
+
+def wrap(seq):
+    """A sequence for the outer terminal; `seq` starts after its first ESC."""
+    return START + seq.replace("\x1b", ESC) + CLOSE
+
+
+# --- terminal detection --------------------------------------------------------
+
+def query(tty_fd, seqs, timeout=1.0):
+    """Send queries ending with a (passed-through) DA1 and collect the replies."""
+    out(seqs + wrap("[c"))
+    buf, end = b"", time.time() + timeout
+    while time.time() < end:
+        r, _, _ = select.select([tty_fd], [], [], max(0, end - time.time()))
+        if not r:
+            break
+        buf += os.read(tty_fd, 4096)
+        # The DA1 reply comes last: every terminal answers it, in order.
+        if re.search(rb"\x1b\[\?[\d;]*c", buf):
+            break
+    return buf.decode(errors="replace")
+
+
+def protocol_from(name):
+    n = (name or "").lower()
+    if "ghostty" in n or "kitty" in n:
+        return "kitty"
+    if "iterm" in n or "wezterm" in n:
+        return "iterm"
+    return None
+
+
+def detect(tty_fd):
+    """(protocol or None, cell width px, cell height px)."""
+    proto = os.environ.get("PDFV_PROTOCOL")
+    if TMUX:
+        subprocess.run(["tmux", "set", "-p", "allow-passthrough", "on"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        names = subprocess.run(["tmux", "display", "-p", "#{client_termname} #{client_termtype}"],
+                               capture_output=True, text=True).stdout
+        proto = proto or protocol_from(names)
+    else:
+        for var in ("TERM", "TERM_PROGRAM", "LC_TERMINAL"):
+            proto = proto or protocol_from(os.environ.get(var))
+
+    # Terminal version (XTVERSION) for the protocol, cell size in pixels (CSI 16 t;
+    # inside tmux tmux itself answers it from the client's size).
+    resp = query(tty_fd, wrap("[>q") + "\x1b[16t")
+    if not proto:
+        names = [v for v in re.findall(r"\x1bP>\|([^\x1b]*)", resp) if not v.startswith("tmux")]
+        proto = protocol_from(names[0] if names else "")
+    m = re.search(r"\x1b\[6;(\d+);(\d+)t", resp)
+    if m and int(m.group(1)) and int(m.group(2)):
+        return proto, int(m.group(2)), int(m.group(1))
+    # Fall back to the pixel size the kernel knows for the tty.
+    rows, cols, xp, yp = struct.unpack("HHHH", fcntl.ioctl(tty_fd, termios.TIOCGWINSZ, b"\0" * 8))
+    if xp and yp:
+        return proto, xp / cols, yp / rows
+    return proto, 10, 20
+
+
+# --- PDF -------------------------------------------------------------------------
+
+def page_sizes(path):
+    """[(width, height)] in points for every page, rotation applied."""
+    info = subprocess.run(["pdfinfo", path], capture_output=True, text=True)
+    if info.returncode:
+        sys.exit(f"pdfv: {info.stderr.strip() or 'pdfinfo failed'}")
+    n = int(re.search(r"Pages:\s+(\d+)", info.stdout).group(1))
+    full = subprocess.run(["pdfinfo", "-f", "1", "-l", str(n), path],
+                          capture_output=True, text=True).stdout
+    sizes = {int(p): (float(w), float(h)) for p, w, h in
+             re.findall(r"Page\s+(\d+)\s+size:\s+([\d.]+)\s+x\s+([\d.]+)", full)}
+    rots = {int(p): int(r) for p, r in re.findall(r"Page\s+(\d+)\s+rot:\s+(\d+)", full)}
+    res = []
+    for p in range(1, n + 1):
+        w, h = sizes.get(p, (612.0, 792.0))
+        res.append((h, w) if rots.get(p, 0) % 180 == 90 else (w, h))
+    return res
+
+
+class Renderer:
+    """Renders pages to PNG in a temp dir; caches them and prefetches the next one."""
+
+    def __init__(self, path, sizes):
+        self.path, self.sizes = path, sizes
+        self.dir = tempfile.TemporaryDirectory(prefix="pdfv-")
+        self.cache, self.lock = {}, threading.Lock()
+
+    def png(self, page, W, H):
+        key = (page, W, H)
+        with self.lock:
+            if key in self.cache:
+                return self.cache[key]
+        pw, ph = self.sizes[page - 1]
+        dpi = 72 * min(W / pw, H / ph)
+        prefix = os.path.join(self.dir.name, f"{page}-{W}x{H}")
+        subprocess.run(["pdftoppm", "-f", str(page), "-l", str(page), "-singlefile", "-png",
+                        "-r", f"{dpi:.4f}", self.path, prefix],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        with open(prefix + ".png", "rb") as f:
+            data = f.read()
+        os.unlink(prefix + ".png")
+        with self.lock:
+            self.cache[key] = data
+        return data
+
+    def prefetch(self, page, W, H):
+        if 1 <= page <= len(self.sizes):
+            threading.Thread(target=lambda: self._quiet(page, W, H), daemon=True).start()
+
+    def _quiet(self, *a):
+        try:
+            self.png(*a)
+        except Exception:
+            pass
+
+
+def png_size(data):
+    return struct.unpack(">II", data[16:24])
+
+
+# --- drawing ---------------------------------------------------------------------
+
+def show_kitty(data, top, left, cols, rows):
+    b64 = base64.b64encode(data).decode()
+    chunks = [b64[i:i + 4096] for i in range(0, len(b64), 4096)] or [""]
+    s = [wrap(f"_Gq=2,a=d,d=I,i={IMAGE_ID}\x1b\\")]
+    for i, c in enumerate(chunks):
+        more = int(i < len(chunks) - 1)
+        head = f"q=2,a=T,U=1,f=100,i={IMAGE_ID},c={cols},r={rows},m={more}" if i == 0 else f"m={more}"
+        s.append(wrap(f"_G{head};{c}\x1b\\"))
+    out("".join(s))
+    place_kitty(top, left, cols, rows)
+
+
+def place_kitty(top, left, cols, rows):
+    r, g, b = (IMAGE_ID >> 16) & 255, (IMAGE_ID >> 8) & 255, IMAGE_ID & 255
+    s = [f"\x1b[38;2;{r};{g};{b}m"]
+    for y in range(rows):
+        s.append(f"\x1b[{top + y + 1};{left + 1}H")
+        dy = DIACRITICS[min(y, len(DIACRITICS) - 1)]
+        s.append("".join("\U0010EEEE" + dy + DIACRITICS[min(x, len(DIACRITICS) - 1)]
+                         for x in range(cols)))
+    s.append("\x1b[39m")
+    out("".join(s))
+
+
+def show_iterm(data, top, left, w, h):
+    out(f"\x1b[{top + 1};{left + 1}H")
+    out(wrap(f"]1337;File=inline=1;size={len(data)};width={w}px;height={h}px;"
+             f"preserveAspectRatio=1;doNotMoveCursor=1:{base64.b64encode(data).decode()}\x07"))
+
+
+class Viewer:
+    def __init__(self, path, page, tty_fd):
+        self.path, self.fd = path, tty_fd
+        self.sizes = page_sizes(path)
+        self.n = len(self.sizes)
+        self.page = max(1, min(page, self.n))
+        self.render = Renderer(path, self.sizes)
+        self.number = ""  # digits typed for "go to page"
+        self.resized = False
+        self.proto, self.cw, self.ch = detect(tty_fd)
+        self.buttons = (0, 0, 0)
+
+    def geometry(self):
+        cols, rows = shutil.get_terminal_size()
+        return cols, rows, int(cols * self.cw), int((rows - 1) * self.ch)
+
+    def draw(self, quick=False):
+        cols, rows, W, H = self.geometry()
+        if not quick:
+            out("\x1b[2J")
+        if W > 0 and H > 0:
+            try:
+                data = self.render.png(self.page, W, H)
+            except subprocess.CalledProcessError:
+                data = None
+            if data:
+                w, h = png_size(data)
+                icols = min(cols, max(1, round(w / self.cw)))
+                irows = min(rows - 1, max(1, round(h / self.ch)))
+                left = (cols - icols) // 2
+                if self.proto == "kitty":
+                    show_kitty(data, 0, left, icols, irows)
+                else:
+                    show_iterm(data, 0, left, w, h)
+                self.render.prefetch(self.page + 1, W, H)
+        self.status(cols, rows)
+
+    def status(self, cols, rows):
+        name = os.path.basename(self.path)
+        nav = f" ◀  {self.page} / {self.n}  ▶ "
+        goto = f"   go to: {self.number}_" if self.number else ""
+        keys = "   j/k page · g/G first/last · 12⏎ go to · q quit"
+        line = (nav + goto + keys)[:cols]
+        pad = cols - len(line)
+        if pad > len(name) + 3:
+            line += " " * (pad - len(name) - 1) + name + " "
+        else:
+            line += " " * pad
+        # Columns (1-based) of the clickable arrows.
+        self.buttons = (rows, 2, 5 + len(str(self.page)) + 3 + len(str(self.n)) + 2)
+        out(f"\x1b[{rows};1H\x1b[7m{line}\x1b[0m")
+
+    def go(self, page):
+        page = max(1, min(page, self.n))
+        if page != self.page:
+            self.page = page
+            self.draw()
+
+    def handle(self, data):
+        """Process input bytes; returns False to quit."""
+        i = 0
+        while i < len(data):
+            rest = data[i:]
+            m = re.match(rb"\x1b\[<(\d+);(\d+);(\d+)([Mm])", rest)
+            if m:
+                b, x, y, kind = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4)
+                if b == 64:
+                    self.go(self.page - 1)
+                elif b == 65:
+                    self.go(self.page + 1)
+                elif b == 0 and kind == b"M" and y == self.buttons[0]:
+                    if abs(x - self.buttons[1]) <= 1:
+                        self.go(self.page - 1)
+                    elif abs(x - self.buttons[2]) <= 1:
+                        self.go(self.page + 1)
+                i += m.end()
+                continue
+            m = re.match(rb"\x1b(\[[\d;?]*[~A-Za-z]|O[A-Za-z]|_[^\x1b]*\x1b\\|P[^\x1b]*\x1b\\)", rest)
+            if m:
+                seq = m.group(1)
+                if seq in (b"[B", b"[C", b"[6~", b"OB", b"OC"):
+                    self.go(self.page + 1)
+                elif seq in (b"[A", b"[D", b"[5~", b"OA", b"OD"):
+                    self.go(self.page - 1)
+                elif seq in (b"[H", b"[1~", b"OH"):
+                    self.go(1)
+                elif seq in (b"[F", b"[4~", b"OF"):
+                    self.go(self.n)
+                elif seq == b"[I":  # focus regained: tmux may have painted over us
+                    self.draw()
+                i += m.end()
+                continue
+            c = rest[:1]
+            i += 1
+            if c == b"\x1b":
+                if self.number:
+                    self.number = ""
+                    self.status(*self.geometry()[:2])
+                    continue
+                return False
+            if c == b"q":
+                return False
+            if c.isdigit():
+                self.number += c.decode()
+                self.status(*self.geometry()[:2])
+            elif c in (b"\r", b"\n"):
+                if self.number:
+                    page, self.number = int(self.number), ""
+                    self.status(*self.geometry()[:2])
+                    self.go(page)
+            elif c in (b"\x7f", b"\x08") and self.number:
+                self.number = self.number[:-1]
+                self.status(*self.geometry()[:2])
+            elif c in (b"j", b"n", b" "):
+                self.go(self.page + 1)
+            elif c in (b"k", b"b", b"p"):
+                self.go(self.page - 1)
+            elif c == b"g":
+                self.go(1)
+            elif c == b"G":
+                self.go(self.n)
+            elif c == b"r":
+                self.render.cache.clear()
+                self.draw()
+        return True
+
+    def run(self):
+        signal.signal(signal.SIGWINCH, lambda *_: setattr(self, "resized", True))
+        self.draw()
+        while True:
+            try:
+                r, _, _ = select.select([self.fd], [], [], 0.1)
+            except InterruptedError:
+                r = []
+            if self.resized:
+                self.resized = False
+                time.sleep(0.05)
+                self.draw()
+            if r:
+                data = os.read(self.fd, 4096)
+                # A lone ESC may be the start of a sequence still on its way.
+                if data == b"\x1b":
+                    r2, _, _ = select.select([self.fd], [], [], 0.05)
+                    if r2:
+                        data += os.read(self.fd, 4096)
+                if not self.handle(data):
+                    return
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0 if args else 2
+    path = args[0]
+    page = int(args[1]) if len(args) > 1 and args[1].isdigit() else 1
+    if not os.path.isfile(path):
+        sys.exit(f"pdfv: no such file: {path}")
+    for tool in ("pdftoppm", "pdfinfo"):
+        if not shutil.which(tool):
+            sys.exit(f"pdfv: needs {tool} from poppler (toscpm install poppler)")
+
+    fd = sys.stdin.fileno()
+    if not os.isatty(fd):
+        sys.exit("pdfv: needs a terminal")
+    saved = termios.tcgetattr(fd)
+    viewer = None
+    try:
+        tty.setraw(fd)
+        # Alternate screen, hidden cursor, mouse (SGR) and focus reporting.
+        out("\x1b[?1049h\x1b[?25l\x1b[?1000h\x1b[?1006h\x1b[?1004h")
+        viewer = Viewer(path, page, fd)
+        if viewer.proto is None:
+            out("\x1b[2J\x1b[H")
+            out("pdfv: this terminal shows no images through the kitty or iTerm2 protocol\r\n"
+                "(Ghostty, kitty, iTerm2 and WezTerm do; Windows Terminal only has sixel).\r\n"
+                "Set PDFV_PROTOCOL=kitty or iterm to force one. Press a key.")
+            os.read(fd, 16)
+            return 1
+        viewer.run()
+        return 0
+    finally:
+        if viewer and viewer.proto == "kitty":
+            out(wrap(f"_Gq=2,a=d,d=I,i={IMAGE_ID}\x1b\\"))
+        out("\x1b[?1004l\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[?1049l")
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

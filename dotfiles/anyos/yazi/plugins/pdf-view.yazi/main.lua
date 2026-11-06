@@ -4,8 +4,8 @@
 -- The built-in previewer renders pages at pdftoppm's fixed 150 dpi, and yazi
 -- only ever shrinks images, so on a large or high-dpi pane the page came out
 -- smaller than the pane. This one asks pdftoppm for exactly the pane's pixel
--- size. Turning pages works as before: J/K and the mouse wheel over the
--- preview go one page per key press or wheel tick.
+-- size. J/K and the mouse wheel over the preview turn one page per key press
+-- or wheel tick; Enter opens the PDF in pdfv (toscpm bin/pdfv).
 
 local M = {}
 

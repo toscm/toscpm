@@ -6,6 +6,17 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.110.0
+
+- Add the `pdfv` bin script (Linux and macOS), a terminal PDF viewer that also works inside tmux.
+  It renders each page with pdftoppm at the size of the terminal and shows it with the kitty graphics protocol (Ghostty, kitty) or the iTerm2 inline image protocol (iTerm2, WezTerm).
+  Keys: j/k, arrows, Space, PgUp/PgDn turn pages, g/G go to the first/last page, a number plus Enter goes to that page, q or Esc quits; the mouse wheel turns pages and the arrows in the status line can be clicked.
+  Inside tmux it turns on `allow-passthrough` for its own pane and wraps the image data for tmux, as yazi does; kitty images use Unicode placeholders, so tmux redraws keep them.
+  Windows Terminal is not supported, because it only understands sixel images.
+
+- yazi: Enter on a PDF opens it in pdfv (on Windows in the system viewer), as Enter on a text file opens nvim.
+  The full-width preview that Enter toggled before is gone, and so is the `max` action of resize-pane.
+
 ## 1.109.0
 
 - yazi: Enter on a PDF shows its preview over the full width, and Enter again restores the panes; J/K and the mouse wheel turn pages.
