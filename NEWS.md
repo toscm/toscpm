@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.104.0
+
+- Add poppler as a tool (checked as `pdftoppm`), which yazi needs to preview PDFs.
+  macOS uses `brew install poppler`, Windows `winget install oschwartz10612.Poppler`, and Linux with admin `sudo apt install -y poppler-utils`.
+  Without admin, the new `scripts/install_poppler` fetches the distro's own poppler-utils and libpoppler packages with `apt-get download` (no root needed), unpacks them to `~/.local/share/poppler` and puts a wrapper per command (pdftoppm, pdftotext, pdfinfo, ...) into `~/.local/bin` that sets `LD_LIBRARY_PATH`, as for piper.
+
 ## 1.103.0
 
 - node: require version 24 or newer (pauk 2 needs it); `toscpm install` now replaces an older node with the current LTS in `~/.local`.

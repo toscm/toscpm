@@ -407,6 +407,16 @@ TOOLS = [
          GhBin("sxyazi/yazi",
                {a: f"yazi-{t}.zip" for a, t in RUST_MUSL.items()},
                [("yazi", "yazi"), ("ya", "ya")], archive="zip", versioned=False)),
+    # poppler's pdftoppm renders yazi's PDF previews. Linux has no portable
+    # poppler build, so scripts/install_poppler fetches the distro's own .debs
+    # with `apt-get download` (no root) into ~/.local/share/poppler and puts
+    # LD_LIBRARY_PATH wrappers into ~/.local/bin. The winget package declares
+    # ArchiveBinariesDependOnPath, so its bin folder lands on the user PATH.
+    Tool("poppler", "pdftoppm",
+         {"macos": "brew install poppler", "linux": "sudo apt install -y poppler-utils",
+          "windows": "winget install oschwartz10612.Poppler"},
+         Script(f'"{REPO_DIR}/scripts/install_poppler"'),
+         version_flag="-v"),
     Tool("fd", {"default": "fd", "linux": ["fd", "fdfind"]},
          {"macos": "brew install fd", "linux": "sudo apt install -y fd-find", "windows": "winget install sharkdp.fd"},
          GhBin("sharkdp/fd",
