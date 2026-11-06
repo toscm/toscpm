@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.109.0
+
+- yazi: Enter on a PDF shows its preview over the full width, and Enter again restores the panes; J/K and the mouse wheel turn pages.
+  Opening a PDF used to hand it to `xdg-open`, which does nothing without a desktop (over ssh, on servers); the preview works in any terminal yazi shows images in, inside tmux too.
+  Enter still goes into folders and opens other files; Alt+f, which did the same as the new Enter, is gone.
+
 ## 1.108.0
 
 - yazi: pdf-view drops zooming and panning (Alt+=, Alt++, Alt+-, Alt+arrows, horizontal scrolling) and only keeps rendering PDFs at the pane's pixel size.

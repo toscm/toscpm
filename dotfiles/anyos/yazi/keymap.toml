@@ -1,8 +1,9 @@
-# Enter a directory, or open a hovered file
+# Enter a directory, view a PDF over the full width (Enter again goes back;
+# J/K and the mouse wheel turn pages), or open any other file
 [[mgr.prepend_keymap]]
 on   = "<Enter>"
 run  = "plugin smart-enter"
-desc = "Enter the child directory, or open the file"
+desc = "Enter the dir, view a PDF full width, or open the file"
 
 # === 1. Edit the path bar / jump anywhere by typing ========================
 # <C-l>: type or Tab-complete an arbitrary path (Double Commander path bar).
@@ -97,7 +98,8 @@ desc = "Detailed view: name, ext, size, modified"
 on   = ["m", "d"]
 run  = "linemode details"
 desc = "details"
-# === 6. Resize the panes (local resize-pane plugin) ========================
+
+# === 7. Resize the panes (local resize-pane plugin) ========================
 # Alt+h / Alt+l move the divider between file list and preview by a tenth;
 # Alt+0 restores the ratio from yazi.toml. Alt is Option on macOS.
 [[mgr.prepend_keymap]]
@@ -115,13 +117,7 @@ on   = "<A-0>"
 run  = "plugin resize-pane -- reset"
 desc = "Reset the pane sizes"
 
-# Alt+f: preview over the full width, press again to restore (f = fullscreen).
-[[mgr.prepend_keymap]]
-on   = "<A-f>"
-run  = "plugin resize-pane -- max"
-desc = "Toggle a full-width preview"
-
-# === 7. Backspace and Delete as in a GUI file manager ======================
+# === 8. Backspace and Delete as in a GUI file manager ======================
 # Backspace goes to the parent folder; Delete (Entf) moves the selected or
 # hovered files to the trash after a confirmation, like the built-in d.
 [[mgr.prepend_keymap]]
