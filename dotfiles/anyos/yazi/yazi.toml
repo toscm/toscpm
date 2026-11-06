@@ -8,3 +8,9 @@ ratio = [0, 4, 4]
 [input]
 shell_origin = "bottom-left"
 shell_offset = [0, -1, 1000, 3]
+# Largest size, in pixels, that image and PDF previews are rendered at
+# (default 600x900). 3840x2160 is twice Full HD, so a maximized preview pane
+# on a large screen still shows a sharp image.
+[preview]
+max_width  = 3840
+max_height = 2160
