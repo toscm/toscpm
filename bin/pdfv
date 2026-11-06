@@ -131,29 +131,55 @@ def page_sizes(path):
 
 
 class Renderer:
-    """Renders pages to PNG in a temp dir; caches them and prefetches the next one."""
+    """Renders pages to PNG in a temp dir; caches them and prefetches the next one.
+
+    The viewer and the prefetch thread may ask for the same page at the same
+    time. Each page is rendered only once: a second caller waits for the
+    render already running instead of starting its own.
+    """
 
     def __init__(self, path, sizes):
         self.path, self.sizes = path, sizes
         self.dir = tempfile.TemporaryDirectory(prefix="pdfv-")
-        self.cache, self.lock = {}, threading.Lock()
+        self.cache, self.running, self.lock = {}, {}, threading.Lock()
 
     def png(self, page, W, H):
         key = (page, W, H)
         with self.lock:
             if key in self.cache:
                 return self.cache[key]
+            done = self.running.get(key)
+            if done is None:
+                done = self.running[key] = threading.Event()
+                mine = True
+            else:
+                mine = False
+        if not mine:
+            done.wait()
+            with self.lock:
+                if key in self.cache:
+                    return self.cache[key]
+            return self.png(page, W, H)  # the other render failed: try ourselves
+        try:
+            data = self._render(page, W, H)
+            with self.lock:
+                self.cache[key] = data
+            return data
+        finally:
+            with self.lock:
+                del self.running[key]
+            done.set()
+
+    def _render(self, page, W, H):
         pw, ph = self.sizes[page - 1]
         dpi = 72 * min(W / pw, H / ph)
-        prefix = os.path.join(self.dir.name, f"{page}-{W}x{H}")
+        prefix = os.path.join(self.dir.name, f"{page}-{W}x{H}-{threading.get_ident()}")
         subprocess.run(["pdftoppm", "-f", str(page), "-l", str(page), "-singlefile", "-png",
                         "-r", f"{dpi:.4f}", self.path, prefix],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         with open(prefix + ".png", "rb") as f:
             data = f.read()
         os.unlink(prefix + ".png")
-        with self.lock:
-            self.cache[key] = data
         return data
 
     def prefetch(self, page, W, H):
@@ -212,6 +238,7 @@ class Viewer:
         self.render = Renderer(path, self.sizes)
         self.number = ""  # digits typed for "go to page"
         self.resized = False
+        self.dirty = False
         self.proto, self.cw, self.ch = detect(tty_fd)
         self.buttons = (0, 0, 0)
 
@@ -259,7 +286,7 @@ class Viewer:
         page = max(1, min(page, self.n))
         if page != self.page:
             self.page = page
-            self.draw()
+            self.dirty = True  # drawn once all pending input is handled
 
     def handle(self, data):
         """Process input bytes; returns False to quit."""
@@ -292,7 +319,7 @@ class Viewer:
                 elif seq in (b"[F", b"[4~", b"OF"):
                     self.go(self.n)
                 elif seq == b"[I":  # focus regained: tmux may have painted over us
-                    self.draw()
+                    self.dirty = True
                 i += m.end()
                 continue
             c = rest[:1]
@@ -326,7 +353,7 @@ class Viewer:
                 self.go(self.n)
             elif c == b"r":
                 self.render.cache.clear()
-                self.draw()
+                self.dirty = True
         return True
 
     def run(self):
@@ -341,7 +368,10 @@ class Viewer:
                 self.resized = False
                 time.sleep(0.05)
                 self.draw()
-            if r:
+            # Handle all input that is already waiting before drawing, so keys
+            # pressed while a page was rendering skip ahead instead of each
+            # rendering a page in turn.
+            while r:
                 data = os.read(self.fd, 4096)
                 # A lone ESC may be the start of a sequence still on its way.
                 if data == b"\x1b":
@@ -350,6 +380,10 @@ class Viewer:
                         data += os.read(self.fd, 4096)
                 if not self.handle(data):
                     return
+                r, _, _ = select.select([self.fd], [], [], 0)
+            if self.dirty:
+                self.dirty = False
+                self.draw()
 
 
 def main():

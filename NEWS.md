@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.110.1
+
+- pdfv: pressing a page key quickly no longer crashes with `FileNotFoundError`.
+  The prefetch of the next page and the page being shown rendered the same file at the same time, and the first to finish deleted it; now each page is rendered once and a second request waits for it.
+  Keys pressed while a page renders are handled together, so holding Right skips ahead instead of rendering every page in turn.
+
 ## 1.110.0
 
 - Add the `pdfv` bin script (Linux and macOS), a terminal PDF viewer that also works inside tmux.
