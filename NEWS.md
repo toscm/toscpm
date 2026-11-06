@@ -6,6 +6,11 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.111.1
+
+- pdfv: sixel images are cut back to the height pdfv asked for.
+  chafa pads them to whole character cells of the size it assumes, which need not match the terminal's, so a padded page could reach the status line and scroll the screen.
+
 ## 1.111.0
 
 - pdfv: sixel support, for terminals that show no kitty or iTerm2 images but report sixel graphics in their device attributes, such as Windows Terminal (also over ssh).

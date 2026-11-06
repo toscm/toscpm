@@ -201,13 +201,13 @@ class Renderer:
             if key in self.cache:
                 return self.cache[key]
         data = self.png(page, W, H)
-        # --exact-size keeps the PNG's pixel size, which already fits the
-        # terminal; --polite leaves the cursor and terminal modes alone.
+        # --exact-size keeps the PNG's pixel size (padded to whole cells, which
+        # trim_sixel undoes); --polite leaves the cursor and terminal modes alone.
         res = subprocess.run(["chafa", "-f", "sixels", "--exact-size", "on", "--polite", "on",
                               "--passthrough", "none", "--probe", "off", "--animate", "off",
                               "--relative", "off", "-"],
                              input=data, capture_output=True, check=True)
-        six = res.stdout.rstrip(b"\r\n")
+        six = trim_sixel(res.stdout.rstrip(b"\r\n"), png_size(data)[1])
         with self.lock:
             self.cache[key] = six
         return six
@@ -222,6 +222,25 @@ class Renderer:
             get(*a)
         except Exception:
             pass
+
+
+def trim_sixel(six, height):
+    """Cut a sixel image down to `height` pixels (rounded up to its 6-pixel bands).
+
+    chafa pads images to whole character cells of the size it assumes, which
+    need not be the terminal's; a padded image could reach the status line and
+    scroll the screen. Bands are separated by "-", which occurs nowhere else.
+    """
+    bands = -(-height // 6)
+    end = six.rfind(b"\x1b\\")
+    body, pos = six[:end], -1
+    for _ in range(bands):
+        pos = body.find(b"-", pos + 1)
+        if pos < 0:
+            return six  # not taller than asked for
+    body = re.sub(rb'"1;1;(\d+);(\d+)', lambda m: b'"1;1;' + m.group(1) + b";%d" % (bands * 6),
+                  body[:pos], count=1)
+    return body + b"\x1b\\"
 
 
 def png_size(data):
