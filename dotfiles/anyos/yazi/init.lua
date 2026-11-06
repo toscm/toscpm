@@ -69,4 +69,9 @@ function Linemode:details()
 		return text
 	end
 	return ui.Span(text):fg("darkgray")
+-- Horizontal scrolling (trackpad, tilt wheel) over the preview pans a
+-- zoomed-in PDF sideways; see plugins/pdf-view.yazi. Elsewhere it does
+-- nothing, as before.
+function Preview:touch(event, step)
+	ya.emit("plugin", { "pdf-view", step > 0 and "pan right" or "pan left" })
 end

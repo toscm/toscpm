@@ -6,6 +6,22 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.107.0
+
+- yazi: new local plugin `pdf-view.yazi` replaces the built-in PDF previewer and renders every view at the pane's pixel size, so a PDF now fills the preview pane.
+  The built-in previewer rendered at a fixed 150 dpi, which left empty space below the page on large or high-dpi screens.
+
+- yazi: zoom into PDFs with Alt+= or Alt++ and out with Alt+-, pan with Alt+arrows.
+  Zooming renders the visible part at a higher resolution, so text stays sharp.
+  J/K and the mouse wheel over the preview turn pages, or scroll within the page while zoomed in and continue on the next or previous page at the edge; horizontal scrolling pans sideways.
+  Ctrl+mouse wheel cannot be used for zooming, because yazi does not pass modifier keys of mouse events to plugins.
+
+- yazi: Alt+f toggles a full-width preview, and Alt+0 now also resets the PDF zoom.
+
+- yazi: Backspace goes to the parent folder and Delete (Entf) moves the selected files to the trash after a confirmation.
+
+- yazi: the preview size limit is now 9999x9999 pixels instead of 3840x2160, so previews are limited only by the pane.
+
 ## 1.106.0
 
 - yazi: Alt+h and Alt+l move the divider between file list and preview by a tenth of their width, and Alt+0 restores the ratio from `yazi.toml`.

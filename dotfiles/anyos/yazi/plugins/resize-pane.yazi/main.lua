@@ -5,6 +5,7 @@
 --   plugin resize-pane -- left    divider one step left (preview grows)
 --   plugin resize-pane -- right   divider one step right (file list grows)
 --   plugin resize-pane -- reset   back to the ratio from yazi.toml
+--   plugin resize-pane -- max     preview over the full width; again restores
 --
 -- The parent pane keeps its share. rt.mgr.ratio is { parent=, current=,
 -- preview= } on yazi 26.x stable and { [1], [2], [3] } on nightly; both are
@@ -30,7 +31,17 @@ local function entry(st, job)
 	st.orig = st.orig or get()
 
 	if act == "reset" then
+		st.before = nil
 		return set(st.orig)
+	elseif act == "max" then
+		local r = get()
+		if r[1] == 0 and r[2] == 0 then
+			local back = st.before or st.orig
+			st.before = nil
+			return set(back)
+		end
+		st.before = r
+		return set { 0, 0, 1 }
 	end
 
 	-- Rescale current + preview to STEPS units, so one step is a tenth of

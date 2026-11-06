@@ -11,6 +11,18 @@ shell_offset = [0, -1, 1000, 3]
 # Largest size, in pixels, that image and PDF previews are rendered at
 # (default 600x900). 3840x2160 is twice Full HD, so a maximized preview pane
 # on a large screen still shows a sharp image.
+# Upper limit, in pixels, for image and PDF previews (default 600x900).
+# 9999 means no limit in practice: previews are drawn at the pane's own pixel
+# size, which on a large or high-dpi (Retina) screen exceeds the default.
+# yazi only shrinks images, never enlarges them, so a picture smaller than
+# the pane still shows at its own size.
 [preview]
-max_width  = 3840
-max_height = 2160
+max_width  = 9999
+max_height = 9999
+
+# PDFs go to the local pdf-view plugin (zoom and pan, rendered at pane size)
+# instead of the built-in previewer. It also takes the PDF preloader slot, so
+# the built-in one does not render a 150 dpi copy that would never be shown.
+[plugin]
+prepend_previewers = [{ mime = "application/pdf", run = "pdf-view" }]
+prepend_preloaders = [{ mime = "application/pdf", run = "pdf-view" }]
