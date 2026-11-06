@@ -112,8 +112,8 @@ desc = "Move the divider right (larger file list)"
 
 [[mgr.prepend_keymap]]
 on   = "<A-0>"
-run  = ["plugin resize-pane -- reset", "plugin pdf-view -- zoom reset"]
-desc = "Reset the pane sizes and the PDF zoom"
+run  = "plugin resize-pane -- reset"
+desc = "Reset the pane sizes"
 
 # Alt+f: preview over the full width, press again to restore (f = fullscreen).
 [[mgr.prepend_keymap]]
@@ -121,46 +121,7 @@ on   = "<A-f>"
 run  = "plugin resize-pane -- max"
 desc = "Toggle a full-width preview"
 
-# === 7. PDF zoom and pan (local pdf-view plugin) ===========================
-# Alt+= or Alt++ zooms in (+ is its own key on German keyboards), Alt+-
-# zooms out, Alt+arrows pan. J/K and the mouse wheel over the preview turn
-# pages, or scroll within the page while zoomed in. Alt+0 resets the zoom.
-[[mgr.prepend_keymap]]
-on   = "<A-=>"
-run  = "plugin pdf-view -- zoom in"
-desc = "Zoom into the PDF"
-
-[[mgr.prepend_keymap]]
-on   = "<A-+>"
-run  = "plugin pdf-view -- zoom in"
-desc = "Zoom into the PDF"
-
-[[mgr.prepend_keymap]]
-on   = "<A-->"
-run  = "plugin pdf-view -- zoom out"
-desc = "Zoom out of the PDF"
-
-[[mgr.prepend_keymap]]
-on   = "<A-Left>"
-run  = "plugin pdf-view -- pan left"
-desc = "Pan the zoomed PDF left"
-
-[[mgr.prepend_keymap]]
-on   = "<A-Right>"
-run  = "plugin pdf-view -- pan right"
-desc = "Pan the zoomed PDF right"
-
-[[mgr.prepend_keymap]]
-on   = "<A-Up>"
-run  = "plugin pdf-view -- pan up"
-desc = "Pan the zoomed PDF up"
-
-[[mgr.prepend_keymap]]
-on   = "<A-Down>"
-run  = "plugin pdf-view -- pan down"
-desc = "Pan the zoomed PDF down"
-
-# === 8. Backspace and Delete as in a GUI file manager ======================
+# === 7. Backspace and Delete as in a GUI file manager ======================
 # Backspace goes to the parent folder; Delete (Entf) moves the selected or
 # hovered files to the trash after a confirmation, like the built-in d.
 [[mgr.prepend_keymap]]

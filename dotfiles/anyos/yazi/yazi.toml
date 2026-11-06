@@ -20,7 +20,7 @@ shell_offset = [0, -1, 1000, 3]
 max_width  = 9999
 max_height = 9999
 
-# PDFs go to the local pdf-view plugin (zoom and pan, rendered at pane size)
+# PDFs go to the local pdf-view plugin (rendered at the pane's pixel size)
 # instead of the built-in previewer. It also takes the PDF preloader slot, so
 # the built-in one does not render a 150 dpi copy that would never be shown.
 [plugin]

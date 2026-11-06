@@ -6,6 +6,12 @@ bump the **minor** version when a tool or dotfile is added or changed, the
 the CLI. The current version lives in the [`VERSION`](VERSION) file (the single
 source of truth); tag each release `vX.Y.Z` to match.
 
+## 1.108.0
+
+- yazi: pdf-view drops zooming and panning (Alt+=, Alt++, Alt+-, Alt+arrows, horizontal scrolling) and only keeps rendering PDFs at the pane's pixel size.
+  This also fixes the mouse wheel, which sometimes needed two ticks for one page: rounding made a fitted page look slightly zoomed in, so the first tick scrolled within the page instead of turning it.
+  J/K and each wheel tick over the preview now always turn exactly one page; Alt+0 again only resets the pane sizes.
+
 ## 1.107.0
 
 - yazi: new local plugin `pdf-view.yazi` replaces the built-in PDF previewer and renders every view at the pane's pixel size, so a PDF now fills the preview pane.
